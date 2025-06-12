@@ -8,7 +8,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-from st_aggrid import AgGrid, GridOptionsBuilder
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, StAggridTheme
 
 
 ## Constants #########################################################################
@@ -85,65 +85,106 @@ def load_data(today: str) -> None:
 # Get data for today's date.
 load_data(datetime.today().strftime('%Y-%m-%d'))
 
+st.set_page_config(layout='wide')
+
 st.markdown(
     """
     <style>
-        section[data-testid="stSidebar"] {
-            width: 70px !important; # Set the width to your desired value
-        }
+       [data-testid="stSidebar"][aria-expanded="true"]{
+           min-width: 30px;
+           max-width: 30px;
+       }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-chosen_position = st.sidebar.selectbox(
-    label="Position:",
-    options=POSITIONS
-)
+l_column, r_column = st.columns([0.6, 0.4])
 
-chosen_term = st.sidebar.radio(
-    label="Chosen term:",
-    options=['Last Week', 'Last Month', 'Full Season'],
-    index=0
-)
+with l_column:
+    chosen_position = st.selectbox(
+        label="Position:",
+        options=POSITIONS,
+    )
+
+with r_column:
+    chosen_term = st.radio(
+        label="Chosen term:",
+        options=['Last Week', 'Last Month', 'Full Season'],
+        index=0,
+        horizontal=True
+    )
+
+col_width = 60
+
 
 df = pd.read_csv(f"data/fantasy_data_{chosen_position}.csv", index_col=False)
 
 plot_df = df[df['term'] == chosen_term.split(' ')[-1].lower()]
 
-table_df = plot_df[['Name', 'Position(s)', 'ABs', 'AVG', 'HRs', 'RBIs', 'SBs', 'wRC+', 'xwOBA']]
+table_df = plot_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
 
+table_df['Name'] = table_df.apply(lambda row: \
+                                  f"{row['Name'][0]}. {' '.join(row['Name'].split(' ')[1:])}",
+                                  axis=1)
+columnDefs = [
+    {'field': col,
+     'headerName': col,
+     'width': col_width,
+     'sortable': True}
+     for col in list(table_df.columns) if col != 'on_team'
+]
 
-l_column, r_column = st.columns(2)
+columnDefs[0]['width'] = 90
 
-with l_column:
-   # st.dataframe(
-   #     data=table_df,
-   #     hide_index=True
-   # )
-    grid_options = {
-        'defaultColDef': {
-            'resizable': True
-        },
-        'columnDefs': [
-            {'headerName': 'Name', 'field': 'Name', 'pinned': 'left'},
-        ]
-    }
-    AgGrid(table_df, gridOptions=grid_options)
+min_x = df['xwOBA'].min()
+max_x = df['xwOBA'].max()
+
+min_y = df['wRC+'].min()
+max_y = df['wRC+'].max()
 
 with r_column:
     chart = (
-        alt.Chart(plot_df)
-        .mark_circle()
+        alt.Chart(plot_df,
+                padding={'left': 20, 'top': 20, 'right': 20, 'bottom': 20},
+                width=300)
+        .mark_circle(
+            size=150
+        )
         .encode(
-            x='xwOBA',
-            y='wRC+',
-            color='on_team',
-            tooltip=['Name']
+            color=alt.Color('on_team').scale(scheme='dark2', reverse=True),
+            tooltip=['Name', 'Team', 'wRC+', 'xwOBA'],
+            x=alt.X('xwOBA', scale=alt.Scale(domain=[0.2, 0.45])),
+            y=alt.Y('wRC+', scale=alt.Scale(domain=[50, 200])),
+            text='Name'
         )
     )
 
-    event = st.altair_chart(chart)
+    st.altair_chart(chart)
+
+with l_column:
+    cellStyle = JsCode(
+        r"""
+        function(cellClassParams) {
+            if (cellClassParams.data.on_team) {
+                return {'background-color': '#a6761d'}
+            }
+            return {};
+        }
+        """)
+
+    css={'.ag-header-group-cell-label.ag-sticky-label': {'flex-direction': 'column', 'margin': 'auto',
+                                                     'font-size': '30pt'}}
+
+    grid_builder = GridOptionsBuilder.from_dataframe(table_df)
+    grid_options = grid_builder.build()
+
+    grid_options['defaultColDef']['cellStyle'] = cellStyle
+    grid_options['defaultColDef']['autoHeight'] = True
+    grid_options['columnDefs'] = columnDefs
+
+    AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
+           custom_css=css)
 
 
 ########################################################################################
