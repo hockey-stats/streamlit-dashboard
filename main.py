@@ -85,7 +85,7 @@ st.markdown(
 )
 
 # Get two columns for our page
-l_column, r_column = st.columns([0.6, 0.4])
+l_column, r_column = st.columns([0.5, 0.5])
 
 # Add the position selector to left column...
 with l_column:
