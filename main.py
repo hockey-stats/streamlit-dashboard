@@ -16,6 +16,8 @@ POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'SP', 'RP']
 ACCENT = "teal"
 ## End Constants #####################################################################
 
+st.set_page_config(layout='wide')
+
 
 @st.cache_data
 def load_data(today: str) -> None:
@@ -65,16 +67,6 @@ def load_data(today: str) -> None:
     with zipfile.ZipFile(output_filename, 'r') as zip_ref:
         zip_ref.extractall('data')
 
-    # The unzipped contents will be one DataFrame for each position
-    for pos in POSITIONS:
-        # Read the raw CSV into a DataFrame
-        df = pd.read_csv(f'data/fantasy_data_{pos}.csv')
-
-        # Determine the number of players on team, for rows to freeze
-        t_df = df[df['on_team']]
-        num_freeze = len(set(t_df['Name']))
-        st.session_state[f"{pos}_rows_freeze"] = num_freeze
-
     print(f"Data loaded for {artifact_creation_date}")
 
 
@@ -85,28 +77,24 @@ def load_data(today: str) -> None:
 # Get data for today's date.
 load_data(datetime.today().strftime('%Y-%m-%d'))
 
-st.set_page_config(layout='wide')
-
+# Set title
 st.markdown(
     """
-    <style>
-       [data-testid="stSidebar"][aria-expanded="true"]{
-           min-width: 30px;
-           max-width: 30px;
-       }
-    </style>
-    """,
-    unsafe_allow_html=True,
+    # Interesting Free Agents
+    """
 )
 
+# Get two columns for our page
 l_column, r_column = st.columns([0.6, 0.4])
 
+# Add the position selector to left column...
 with l_column:
     chosen_position = st.selectbox(
         label="Position:",
         options=POSITIONS,
     )
 
+# ... and term selector on the right
 with r_column:
     chosen_term = st.radio(
         label="Chosen term:",
@@ -115,54 +103,61 @@ with r_column:
         horizontal=True
     )
 
-col_width = 60
-
-
+# Load the correct CSV for chosen position
 df = pd.read_csv(f"data/fantasy_data_{chosen_position}.csv", index_col=False)
 
-plot_df = df[df['term'] == chosen_term.split(' ')[-1].lower()]
+# For the pitchers DataFrames, scale K-BB% up to be a raw percentage
+if chosen_position in {"RP", "SP"}:
+    df['K-BB%'] = df.apply(lambda row: row['K-BB%'] * 100, axis=1)
 
-table_df = plot_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
+########################################################################################
+##  Begin Table ########################################################################
+########################################################################################
 
+# Table only wants data from the chosen term
+table_df = df[df['term'] == chosen_term.split(' ')[-1].lower()]
+
+# Don't want to include every single column from the DataFrame. Choose specific columns
+# based on whether we're dealing with hitters or pitchers
+if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
+else:
+    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'K-BB%', 'Stuff+',
+                         'on_team']]
+
+# Formats name, e.g. Bo Bichette -> B. Bichette
 table_df['Name'] = table_df.apply(lambda row: \
                                   f"{row['Name'][0]}. {' '.join(row['Name'].split(' ')[1:])}",
                                   axis=1)
+
+# Define column options for each column we want to include
 columnDefs = [
-    {'field': col,
-     'headerName': col,
-     'width': col_width,
-     'sortable': True}
-     for col in list(table_df.columns) if col != 'on_team'
+    {
+    'field': col,
+    'headerName': col,
+    'type': 'rightAligned',
+    'sortable': True,
+    'sortingOrder': ['desc', 'asc', None]
+    } for col in list(table_df.columns) if col != 'on_team'
 ]
 
-columnDefs[0]['width'] = 90
+# Format the decimal numbers for certain metrics
+for colDef in columnDefs:
+    if colDef['field'] in {'AVG', 'xwOBA'}:
+        colDef['type'] = ['numericColumn', 'customNumericFormat']
+        colDef['precision'] = 3
+    elif colDef['field'] in {'ERA', 'WHIP'}:
+        colDef['type'] = ['numericColumn', 'customNumericFormat']
+        colDef['precision'] = 2
+    elif colDef['field'] == 'K-BB%':
+        colDef['type'] = ['numericColumn', 'customNumericFormat']
+        colDef['precision'] = 1
 
-min_x = df['xwOBA'].min()
-max_x = df['xwOBA'].max()
-
-min_y = df['wRC+'].min()
-max_y = df['wRC+'].max()
-
-with r_column:
-    chart = (
-        alt.Chart(plot_df,
-                padding={'left': 20, 'top': 20, 'right': 20, 'bottom': 20},
-                width=300)
-        .mark_circle(
-            size=150
-        )
-        .encode(
-            color=alt.Color('on_team').scale(scheme='dark2', reverse=True),
-            tooltip=['Name', 'Team', 'wRC+', 'xwOBA'],
-            x=alt.X('xwOBA', scale=alt.Scale(domain=[0.2, 0.45])),
-            y=alt.Y('wRC+', scale=alt.Scale(domain=[50, 200])),
-            text='Name'
-        )
-    )
-
-    st.altair_chart(chart)
+# Set the name column (always the first one) to be left-aligned
+columnDefs[0]['type'] = 'leftAligned'
 
 with l_column:
+    # Define CSS rule to color the rows for every player on our team.
     cellStyle = JsCode(
         r"""
         function(cellClassParams) {
@@ -173,18 +168,69 @@ with l_column:
         }
         """)
 
-    css={'.ag-header-group-cell-label.ag-sticky-label': {'flex-direction': 'column', 'margin': 'auto',
-                                                     'font-size': '30pt'}}
+    # Define the font size for the table
+    css = {
+            ".ag-row": {"font-size": "7pt"},
+            ".ag-header": {"font-size": "7pt"},
+            ".ag-column": {"width": 40}
+        }
 
     grid_builder = GridOptionsBuilder.from_dataframe(table_df)
     grid_options = grid_builder.build()
 
+    # Add the cell style rule to each column
     grid_options['defaultColDef']['cellStyle'] = cellStyle
+    # Set height/width of columns automatically
     grid_options['defaultColDef']['autoHeight'] = True
+    grid_options['defaultColDef']['autoWidth'] = True
+
     grid_options['columnDefs'] = columnDefs
 
+    # Add the table to our dashboard
     AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
-           custom_css=css)
+           fit_columns_on_grid_load=True, custom_css=css)
+
+########################################################################################
+##  End Table ##########################################################################
+########################################################################################
+
+########################################################################################
+##  Begin Plot #########################################################################
+########################################################################################
+
+# Define different x/y values and domains based on whether we're looking at hitters
+# or pitchers
+if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+    x_val = 'xwOBA'
+    y_val = 'wRC+'
+    x_domain = [0.2, 0.45]
+    y_domain = [50, 200]
+else:
+    x_val = 'K-BB%'
+    y_val = 'Stuff+'
+    x_domain = [10, 35]
+    y_domain = [80, 135]
+
+with r_column:
+    # Creates a scatter plot of players for each position, highlighting players on our team
+    chart = (
+        alt.Chart(df,
+                  width=300)
+        .mark_circle(
+            # Use circles to mark each player in the scatter plot
+            size=150)
+        .encode(
+            color=alt.Color('on_team').scale(scheme='dark2', reverse=True),
+            tooltip=['Name', 'Team', x_val, y_val],
+            x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
+            y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
+            text='Name')
+    )
+    st.altair_chart(chart)
+
+########################################################################################
+##  End Plot ###########################################################################
+########################################################################################
 
 
 ########################################################################################
