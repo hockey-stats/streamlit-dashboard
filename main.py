@@ -156,6 +156,7 @@ for colDef in columnDefs:
 
 # Set the name column (always the first one) to be left-aligned
 columnDefs[0]['type'] = 'leftAligned'
+columnDefs[0]['width'] = 80
 
 with l_column:
     # Define CSS rule to color the rows for every player on our team.
