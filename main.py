@@ -137,7 +137,7 @@ columnDefs = [
     'headerName': col,
     'type': 'rightAligned',
     'width': 40,
-    'height': 10,
+    'height': 15,
     'sortable': True,
     'sortingOrder': ['desc', 'asc', None]
     } for col in list(table_df.columns) if col != 'on_team'
