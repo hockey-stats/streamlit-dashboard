@@ -171,9 +171,8 @@ with l_column:
 
     # Define the font size for the table
     css = {
-            ".ag-row": {"font-size": "7pt"},
-            ".ag-header": {"font-size": "7pt"},
-            ".ag-column": {"width": 40}
+            ".ag-row": {"font-size": "12pt"},
+            ".ag-header": {"font-size": "12pt"}
         }
 
     grid_builder = GridOptionsBuilder.from_dataframe(table_df)
