@@ -137,6 +137,7 @@ columnDefs = [
     'headerName': col,
     'type': 'rightAligned',
     'width': 40,
+    'height': 10,
     'sortable': True,
     'sortingOrder': ['desc', 'asc', None]
     } for col in list(table_df.columns) if col != 'on_team'
@@ -190,7 +191,7 @@ with l_column:
     # Add the table to our dashboard
     AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
            fit_columns_on_grid_load=True, custom_css=css,
-           height=700)
+           height=600)
 
 ########################################################################################
 ##  End Table ##########################################################################
@@ -218,7 +219,7 @@ with r_column:
     chart = (
         alt.Chart(df,
                   width=300,
-                  height=700)
+                  height=600)
         .mark_circle(
             # Use circles to mark each player in the scatter plot
             size=150)
