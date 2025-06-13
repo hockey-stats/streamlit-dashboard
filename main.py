@@ -189,7 +189,8 @@ with l_column:
 
     # Add the table to our dashboard
     AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
-           fit_columns_on_grid_load=True, custom_css=css)
+           fit_columns_on_grid_load=True, custom_css=css,
+           height=700)
 
 ########################################################################################
 ##  End Table ##########################################################################
@@ -216,7 +217,8 @@ with r_column:
     # Creates a scatter plot of players for each position, highlighting players on our team
     chart = (
         alt.Chart(df,
-                  width=300)
+                  width=300,
+                  height=700)
         .mark_circle(
             # Use circles to mark each player in the scatter plot
             size=150)
