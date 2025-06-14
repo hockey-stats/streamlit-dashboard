@@ -1,8 +1,7 @@
 import os
 import json
 import zipfile
-from datetime import datetime
-
+from datetime import datetime, timedelta
 import requests
 import streamlit as st
 import pandas as pd
@@ -19,7 +18,7 @@ ACCENT = "teal"
 st.set_page_config(layout='wide')
 
 
-@st.cache_data
+#@st.cache_data
 def load_data(today: str) -> None:
     """
     Function to be run at the initialization of the dashboard.
@@ -49,6 +48,7 @@ def load_data(today: str) -> None:
 
     for artifact in response_body['artifacts']:
         if artifact['name'] == 'dashboard-fa-data':
+            print(artifact['created_at'])
             artifact_creation_date = artifact['created_at'].split('T')[0]
             if today == artifact_creation_date:
                 download_url = artifact['archive_download_url']
@@ -75,7 +75,11 @@ def load_data(today: str) -> None:
 ########################################################################################
 
 # Get data for today's date.
-load_data(datetime.today().strftime('%Y-%m-%d'))
+today = datetime.today()
+# If checking before 4am, use yesterday's data instead, since data hasn't been updated yet
+if today.hour <= 4:
+    today -= timedelta(days=1)
+load_data(today.strftime('%Y-%m-%d'))
 
 # Set title
 st.markdown(
@@ -214,6 +218,9 @@ else:
     x_domain = [10, 35]
     y_domain = [80, 135]
 
+# Create a last name column to use for chart labels
+df['last_name'] = df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
+
 with r_column:
     # Creates a scatter plot of players for each position, highlighting players on our team
     chart = (
@@ -230,15 +237,20 @@ with r_column:
             y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
             text='Name')
     )
-    st.altair_chart(chart)
+
+    # Create the corresponding labels for each player to add to the plot
+    labels = chart.mark_text(
+        align='left',
+        dx=7
+    ).encode(
+        text='last_name'
+    )
+    st.altair_chart(chart + labels)
 
 ########################################################################################
 ##  End Plot ###########################################################################
 ########################################################################################
 
-
 ########################################################################################
 ## End Main Script #####################################################################
 ########################################################################################
-
-
