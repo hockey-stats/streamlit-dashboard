@@ -6,8 +6,7 @@ import requests
 import streamlit as st
 import pandas as pd
 import altair as alt
-
-from st_aggrid import AgGrid, GridOptionsBuilder, JsCode, StAggridTheme
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 
 ## Constants #########################################################################
