@@ -230,7 +230,7 @@ with r_column:
             # Use circles to mark each player in the scatter plot
             size=150)
         .encode(
-            color=alt.Color('on_team').scale(scheme='dark2', reverse=True),
+            color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
             tooltip=['Name', 'Team', x_val, y_val],
             x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
             y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
