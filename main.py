@@ -75,8 +75,8 @@ def load_data(today: str) -> None:
 
 # Get data for today's date.
 today = datetime.today()
-# If checking before 4am, use yesterday's data instead, since data hasn't been updated yet
-if today.hour <= 4:
+# If checking before 7am UTC, use yesterday's data instead, since data hasn't been updated yet
+if today.hour <= 7:
     today -= timedelta(days=1)
 load_data(today.strftime('%Y-%m-%d'))
 
