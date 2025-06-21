@@ -12,6 +12,25 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 ## Constants #########################################################################
 POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'SP', 'RP']
 ACCENT = "teal"
+
+# Define minimum thresholds for players to meet to be displayed over a given term
+THRESHOLDS = {
+    "B": {
+        "week": 15,
+        "month": 50,
+        "season": 100
+    },
+    "SP": {
+        "week": 6,
+        "month": 10,
+        "season": 80
+    },
+    "RP": {
+        "week": 1,
+        "month": 10,
+        "season": 25
+    }
+}
 ## End Constants #####################################################################
 
 st.set_page_config(layout='wide')
@@ -78,7 +97,7 @@ today = datetime.today()
 # If checking before 7am UTC, use yesterday's data instead, since data hasn't been updated yet
 if today.hour <= 7:
     today -= timedelta(days=1)
-load_data(today.strftime('%Y-%m-%d'))
+#load_data(today.strftime('%Y-%m-%d'))
 
 # Set title
 st.markdown(
@@ -107,10 +126,15 @@ with r_column:
     )
 
 # Load the correct CSV for chosen position
-df = pd.read_csv(f"data/fantasy_data_{chosen_position}.csv", index_col=False)
+#df = pd.read_csv(f"data/fantasy_data_{chosen_position}.csv", index_col=False)
+if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+    df = pd.read_csv("data/batter_data.csv")
+    df = df[df['Position(s)'].str.contains(chosen_position)]
 
 # For the pitchers DataFrames, scale K-BB% up to be a raw percentage
-if chosen_position in {"RP", "SP"}:
+elif chosen_position in {"RP", "SP"}:
+    df = pd.read_csv("data/pitcher_data.csv")
+    df = df[df['Position(s)'].str.contains(chosen_position)]
     df['K-BB%'] = df.apply(lambda row: row['K-BB%'] * 100, axis=1)
 
 ########################################################################################
@@ -118,12 +142,21 @@ if chosen_position in {"RP", "SP"}:
 ########################################################################################
 
 # Table only wants data from the chosen term
-table_df = df[df['term'] == chosen_term.split(' ')[-1].lower()]
+term = chosen_term.split(' ')[-1].lower()
+table_df = df[df['term'] == term]
+
+# Apply minimum thresholds
+if chosen_position not in {'RP', 'SP'}:
+    table_df = table_df[table_df['ABs'] >= THRESHOLDS['B'][term]]
+else:
+    table_df = table_df[table_df['IP'] >= THRESHOLDS[chosen_position][term]]
+
+table_df = table_df.sort_values(by=['on_team', 'z_total'], ascending=[False, False]).head(10)
 
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
-    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
+    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'r', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
 else:
     table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'K-BB%', 'Stuff+',
                          'on_team']]
@@ -217,13 +250,25 @@ else:
     x_domain = [10, 35]
     y_domain = [80, 135]
 
+# Create a specific DF for the plot object
+plot_df = df[df['term'] == term]
+
+# Apply minimum thresholds
+if chosen_position not in {'RP', 'SP'}:
+    plot_df = plot_df[plot_df['ABs'] >= THRESHOLDS['B'][term]]
+else:
+    plot_df = plot_df[plot_df['IP'] >= THRESHOLDS[chosen_position][term]]
+
+# Get only top 10
+plot_df = plot_df.sort_values(by=['on_team', 'z_total'], ascending=[False, False]).head(10)
+
 # Create a last name column to use for chart labels
-df['last_name'] = df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
+plot_df['last_name'] = plot_df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
 
 with r_column:
     # Creates a scatter plot of players for each position, highlighting players on our team
     chart = (
-        alt.Chart(df,
+        alt.Chart(plot_df,
                   width=300,
                   height=600)
         .mark_circle(
