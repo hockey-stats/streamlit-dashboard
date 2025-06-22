@@ -107,7 +107,7 @@ st.markdown(
 )
 
 # Get two columns for our page
-l_column, r_column = st.columns([0.5, 0.5])
+l_column, r_column = st.columns([0.53, 0.47])
 
 # Add the position selector to left column...
 with l_column:
@@ -145,21 +145,22 @@ elif chosen_position in {"RP", "SP"}:
 term = chosen_term.split(' ')[-1].lower()
 table_df = df[df['term'] == term]
 
-# Apply minimum thresholds
+# Apply minimum thresholds for players not on our team
 if chosen_position not in {'RP', 'SP'}:
-    table_df = table_df[table_df['ABs'] >= THRESHOLDS['B'][term]]
+    table_df = table_df[(table_df['ABs'] >= THRESHOLDS['B'][term]) | (table_df['on_team'])]
 else:
-    table_df = table_df[table_df['IP'] >= THRESHOLDS[chosen_position][term]]
+    table_df = table_df[(table_df['IP'] >= THRESHOLDS[chosen_position][term]) | (table_df['on_team'])]
 
-table_df = table_df.sort_values(by=['on_team', 'z_total'], ascending=[False, False]).head(10)
+table_df = table_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(15)
 
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
-    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'r', 'SBs', 'wRC+', 'xwOBA', 'on_team']]
+    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'Runs', 'SBs', 'wRC+', 'xwOBA',
+                         'Rank', 'on_team']]
 else:
     table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'K-BB%', 'Stuff+',
-                         'on_team']]
+                         'Rank', 'on_team']]
 
 # Formats name, e.g. Bo Bichette -> B. Bichette
 table_df['Name'] = table_df.apply(lambda row: \
@@ -227,7 +228,7 @@ with l_column:
     # Add the table to our dashboard
     AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
            fit_columns_on_grid_load=True, custom_css=css,
-           height=600)
+           height=485)
 
 ########################################################################################
 ##  End Table ##########################################################################
@@ -247,7 +248,7 @@ if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
 else:
     x_val = 'K-BB%'
     y_val = 'Stuff+'
-    x_domain = [10, 35]
+    x_domain = [-5, 35]
     y_domain = [80, 135]
 
 # Create a specific DF for the plot object
@@ -255,12 +256,12 @@ plot_df = df[df['term'] == term]
 
 # Apply minimum thresholds
 if chosen_position not in {'RP', 'SP'}:
-    plot_df = plot_df[plot_df['ABs'] >= THRESHOLDS['B'][term]]
+    plot_df = plot_df[(plot_df['ABs'] >= THRESHOLDS['B'][term]) | (plot_df['on_team'])]
 else:
-    plot_df = plot_df[plot_df['IP'] >= THRESHOLDS[chosen_position][term]]
+    plot_df = plot_df[(plot_df['IP'] >= THRESHOLDS[chosen_position][term]) | (plot_df['on_team'])]
 
 # Get only top 10
-plot_df = plot_df.sort_values(by=['on_team', 'z_total'], ascending=[False, False]).head(10)
+plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(15)
 
 # Create a last name column to use for chart labels
 plot_df['last_name'] = plot_df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
@@ -285,7 +286,8 @@ with r_column:
     # Create the corresponding labels for each player to add to the plot
     labels = chart.mark_text(
         align='left',
-        dx=7
+        dx=7,
+        dy=7
     ).encode(
         text='last_name'
     )
