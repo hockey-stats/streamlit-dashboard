@@ -36,7 +36,7 @@ THRESHOLDS = {
 st.set_page_config(layout='wide')
 
 
-@st.cache_data
+#@st.cache_data
 def load_data(today: str) -> None:
     """
     Function to be run at the initialization of the dashboard.
@@ -76,14 +76,21 @@ def load_data(today: str) -> None:
         # Raise an error if no such artifact as found
         raise ValueError(f"Data for {today} not found, exiting....")
 
+    print(f"Found artifact at {download_url}")
+    print("Downloading...")
+
     # Downloads the artifact as a zip file...
     dl_response = requests.request("GET", download_url, headers=headers, data=payload, timeout=20)
     with open(output_filename, 'wb') as fo:
         fo.write(dl_response.content)
 
+    print("Download complete")
+
     # ... and unzips
     with zipfile.ZipFile(output_filename, 'r') as zip_ref:
         zip_ref.extractall('data')
+
+    print(os.listdir('data'))
 
     print(f"Data loaded for {artifact_creation_date}")
 
@@ -97,7 +104,7 @@ today = datetime.today()
 # If checking before 7am UTC, use yesterday's data instead, since data hasn't been updated yet
 if today.hour <= 7:
     today -= timedelta(days=1)
-#load_data(today.strftime('%Y-%m-%d'))
+load_data(today.strftime('%Y-%m-%d'))
 
 # Set title
 st.markdown(
