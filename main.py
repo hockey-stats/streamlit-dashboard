@@ -36,7 +36,7 @@ THRESHOLDS = {
 st.set_page_config(layout='wide')
 
 
-#@st.cache_data
+@st.cache_data
 def load_data(today: str) -> None:
     """
     Function to be run at the initialization of the dashboard.
