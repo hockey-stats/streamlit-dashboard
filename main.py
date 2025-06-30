@@ -36,7 +36,7 @@ THRESHOLDS = {
 st.set_page_config(layout='wide')
 
 
-@st.cache_data
+#@st.cache_data
 def load_data(today: str) -> None:
     """
     Function to be run at the initialization of the dashboard.
@@ -137,6 +137,8 @@ with r_column:
 if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
     df = pd.read_csv("data/batter_data.csv")
     df = df[df['Position(s)'].str.contains(chosen_position)]
+    # Rename HardHit% and present in full percentages
+    df['HH%'] = df.apply(lambda row: row['HardHit%'] * 100, axis=1)
 
 # For the pitchers DataFrames, scale K-BB% up to be a raw percentage
 elif chosen_position in {"RP", "SP"}:
@@ -164,15 +166,18 @@ table_df = table_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True])
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
     table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'Runs', 'SBs', 'wRC+', 'xwOBA',
-                         'Rank', 'on_team']]
+                         'HH%', 'Rank', 'on_team']]
 else:
-    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'K-BB%', 'Stuff+',
-                         'Rank', 'on_team']]
+    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'Stuff+', 'xERA',
+                         'K-BB%', 'Rank', 'on_team']]
 
 # Formats name, e.g. Bo Bichette -> B. Bichette
 table_df['Name'] = table_df.apply(lambda row: \
                                   f"{row['Name'][0]}. {' '.join(row['Name'].split(' ')[1:])}",
                                   axis=1)
+
+# Define certain columns which can be smaller by default
+small_cols = ['ABs', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'Ws', 'SVs', 'Rank']
 
 # Define column options for each column we want to include
 columnDefs = [
@@ -180,7 +185,7 @@ columnDefs = [
     'field': col,
     'headerName': col,
     'type': 'rightAligned',
-    'width': 40,
+    'width': 13 if col in small_cols else 40,
     'height': 20,
     'sortable': True,
     'sortingOrder': ['desc', 'asc', None]
@@ -192,16 +197,19 @@ for colDef in columnDefs:
     if colDef['field'] in {'AVG', 'xwOBA'}:
         colDef['type'] = ['numericColumn', 'customNumericFormat']
         colDef['precision'] = 3
-    elif colDef['field'] in {'ERA', 'WHIP'}:
+    elif colDef['field'] in {'ERA', 'WHIP', 'xERA'}:
         colDef['type'] = ['numericColumn', 'customNumericFormat']
         colDef['precision'] = 2
-    elif colDef['field'] == 'K-BB%':
+    elif colDef['field'] in {'K-BB%', 'HardHit%'}:
         colDef['type'] = ['numericColumn', 'customNumericFormat']
         colDef['precision'] = 1
 
 # Set the name column (always the first one) to be left-aligned
 columnDefs[0]['type'] = 'leftAligned'
 columnDefs[0]['width'] = 70
+
+# Second column (either ABs or IPs) and last columcan also be smaller
+columnDefs[1]['width'] = 10
 
 with l_column:
     # Define CSS rule to color the rows for every player on our team.
@@ -246,16 +254,19 @@ with l_column:
 ########################################################################################
 
 # Define different x/y values and domains based on whether we're looking at hitters
-# or pitchers
+# or pitchers. Also define a column, `size_encoding`, that will be used to determine
+# the size of the markers on the plot.
 if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
     x_val = 'xwOBA'
     y_val = 'wRC+'
+    size_encoding = 'HH%'
     x_domain = [0.2, 0.45]
     y_domain = [50, 200]
 else:
-    x_val = 'K-BB%'
+    x_val = 'xERA'
     y_val = 'Stuff+'
-    x_domain = [-5, 35]
+    size_encoding = 'K-BB%'
+    x_domain = [5.5, 1.5]
     y_domain = [80, 135]
 
 # Create a specific DF for the plot object
@@ -264,8 +275,10 @@ plot_df = df[df['term'] == term]
 # Apply minimum thresholds
 if chosen_position not in {'RP', 'SP'}:
     plot_df = plot_df[(plot_df['ABs'] >= THRESHOLDS['B'][term]) | (plot_df['on_team'])]
+    plot_df['label_size'] = [1.4 for _ in range(len(plot_df))]
 else:
     plot_df = plot_df[(plot_df['IP'] >= THRESHOLDS[chosen_position][term]) | (plot_df['on_team'])]
+    plot_df['label_size'] = [1 for _ in range(len(plot_df))]
 
 # Get only top 10
 plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(15)
@@ -273,18 +286,18 @@ plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).h
 # Create a last name column to use for chart labels
 plot_df['last_name'] = plot_df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
 
+
 with r_column:
     # Creates a scatter plot of players for each position, highlighting players on our team
     chart = (
         alt.Chart(plot_df,
                   width=300,
                   height=600)
-        .mark_circle(
-            # Use circles to mark each player in the scatter plot
-            size=150)
+        .mark_circle()
         .encode(
             color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
-            tooltip=['Name', 'Team', x_val, y_val],
+            size=size_encoding,
+            tooltip=['Name', 'Team', y_val, x_val, size_encoding],
             x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
             y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
             text='Name')
@@ -293,10 +306,13 @@ with r_column:
     # Create the corresponding labels for each player to add to the plot
     labels = chart.mark_text(
         align='left',
-        dx=7,
-        dy=7
+        dx=9,
+        dy=9,
+        fontSize=10,
+        limit=100
     ).encode(
-        text='last_name'
+        text='last_name',
+        size='label_size'
     )
     st.altair_chart(chart + labels)
 
