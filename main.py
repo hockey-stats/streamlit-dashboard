@@ -10,12 +10,14 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 
 ## Constants #########################################################################
-POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'SP', 'RP']
+BATTING_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'All Batters']
+PITCHING_POSITIONS = ['SP', 'RP', 'All Pitchers']
+ALL_POSITIONS = BATTING_POSITIONS + PITCHING_POSITIONS
 ACCENT = "teal"
 
 # Define minimum thresholds for players to meet to be displayed over a given term
 THRESHOLDS = {
-    "B": {
+    "All Batters": {
         "week": 15,
         "month": 50,
         "season": 100
@@ -26,6 +28,11 @@ THRESHOLDS = {
         "season": 80
     },
     "RP": {
+        "week": 1,
+        "month": 10,
+        "season": 25
+    },
+    "All Pitchers": {
         "week": 1,
         "month": 10,
         "season": 25
@@ -120,7 +127,7 @@ l_column, r_column = st.columns([0.53, 0.47])
 with l_column:
     chosen_position = st.selectbox(
         label="Position:",
-        options=POSITIONS,
+        options=ALL_POSITIONS,
     )
 
 # ... and term selector on the right
@@ -133,18 +140,21 @@ with r_column:
     )
 
 # Load the correct CSV for chosen position
-#df = pd.read_csv(f"data/fantasy_data_{chosen_position}.csv", index_col=False)
-if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+if chosen_position in BATTING_POSITIONS:
     df = pd.read_csv("data/batter_data.csv")
-    df = df[df['Position(s)'].str.contains(chosen_position)]
+    if chosen_position != 'All Batters':
+        df = df[df['Position(s)'].str.contains(chosen_position)]
     # Rename HardHit% and present in full percentages
     df['HH%'] = df.apply(lambda row: row['HardHit%'] * 100, axis=1)
 
 # For the pitchers DataFrames, scale K-BB% up to be a raw percentage
-elif chosen_position in {"RP", "SP"}:
+elif chosen_position in PITCHING_POSITIONS:
     df = pd.read_csv("data/pitcher_data.csv")
-    df = df[df['Position(s)'].str.contains(chosen_position)]
+    if chosen_position != 'All Pitchers':
+        df = df[df['Position(s)'].str.contains(chosen_position)]
     df['K-BB%'] = df.apply(lambda row: row['K-BB%'] * 100, axis=1)
+
+
 
 ########################################################################################
 ##  Begin Table ########################################################################
@@ -155,8 +165,8 @@ term = chosen_term.split(' ')[-1].lower()
 table_df = df[df['term'] == term]
 
 # Apply minimum thresholds for players not on our team
-if chosen_position not in {'RP', 'SP'}:
-    table_df = table_df[(table_df['ABs'] >= THRESHOLDS['B'][term]) | (table_df['on_team'])]
+if chosen_position in BATTING_POSITIONS:
+    table_df = table_df[(table_df['ABs'] >= THRESHOLDS['All Batters'][term]) | (table_df['on_team'])]
 else:
     table_df = table_df[(table_df['IP'] >= THRESHOLDS[chosen_position][term]) | (table_df['on_team'])]
 
@@ -164,7 +174,7 @@ table_df = table_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True])
 
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
-if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+if chosen_position in BATTING_POSITIONS:
     table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'Runs', 'SBs', 'wRC+', 'xwOBA',
                          'HH%', 'Rank', 'on_team']]
 else:
@@ -256,7 +266,7 @@ with l_column:
 # Define different x/y values and domains based on whether we're looking at hitters
 # or pitchers. Also define a column, `size_encoding`, that will be used to determine
 # the size of the markers on the plot.
-if chosen_position in {'1B', '2B', '3B', 'SS', 'C', 'OF'}:
+if chosen_position in BATTING_POSITIONS:
     x_val = 'xwOBA'
     y_val = 'wRC+'
     size_encoding = 'HH%'
@@ -273,8 +283,8 @@ else:
 plot_df = df[df['term'] == term]
 
 # Apply minimum thresholds
-if chosen_position not in {'RP', 'SP'}:
-    plot_df = plot_df[(plot_df['ABs'] >= THRESHOLDS['B'][term]) | (plot_df['on_team'])]
+if chosen_position in BATTING_POSITIONS:
+    plot_df = plot_df[(plot_df['ABs'] >= THRESHOLDS['All Batters'][term]) | (plot_df['on_team'])]
     plot_df['label_size'] = [1.4 for _ in range(len(plot_df))]
 else:
     plot_df = plot_df[(plot_df['IP'] >= THRESHOLDS[chosen_position][term]) | (plot_df['on_team'])]
@@ -286,7 +296,6 @@ plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).h
 # Create a last name column to use for chart labels
 plot_df['last_name'] = plot_df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
 
-
 with r_column:
     # Creates a scatter plot of players for each position, highlighting players on our team
     chart = (
@@ -297,7 +306,7 @@ with r_column:
         .encode(
             color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
             size=size_encoding,
-            tooltip=['Name', 'Team', y_val, x_val, size_encoding],
+            tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
             x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
             y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
             text='Name')
