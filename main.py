@@ -170,7 +170,9 @@ if chosen_position in BATTING_POSITIONS:
 else:
     table_df = table_df[(table_df['IP'] >= THRESHOLDS[chosen_position][term]) | (table_df['on_team'])]
 
-table_df = table_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(15)
+display_number = 25 if 'All' in chosen_position else 15
+
+table_df = table_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(display_number)
 
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
@@ -290,8 +292,9 @@ else:
     plot_df = plot_df[(plot_df['IP'] >= THRESHOLDS[chosen_position][term]) | (plot_df['on_team'])]
     plot_df['label_size'] = [1 for _ in range(len(plot_df))]
 
-# Get only top 10
-plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(15)
+display_number = 25 if 'All' in chosen_position else 15
+
+plot_df = plot_df.sort_values(by=['on_team', 'Rank'], ascending=[False, True]).head(display_number)
 
 # Create a last name column to use for chart labels
 plot_df['last_name'] = plot_df.apply(lambda row: ' '.join(row['Name'].split(' ')[1:]), axis=1)
