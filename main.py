@@ -142,6 +142,9 @@ with r_column:
 # Load the correct CSV for chosen position
 if chosen_position in BATTING_POSITIONS:
     df = pd.read_csv("data/batter_data.csv")
+    # May arise if a player was just called up, their only position will be 'Util'
+    # Just put them as OF
+    df['Position(s)'] = df['Position(s)'].fillna('OF')
     if chosen_position != 'All Batters':
         df = df[df['Position(s)'].str.contains(chosen_position)]
     # Rename HardHit% and present in full percentages
