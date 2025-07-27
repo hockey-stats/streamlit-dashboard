@@ -193,6 +193,7 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 
-./data
-./*csv
-./*zip
+data
+*csv
+*zip
+.python-version
