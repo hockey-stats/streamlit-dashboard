@@ -223,7 +223,7 @@ for colDef in columnDefs:
 columnDefs[0]['type'] = 'leftAligned'
 columnDefs[0]['width'] = 70
 
-# Second column (either ABs or IPs) and last columcan also be smaller
+# Second column (either ABs or IPs) and last column can also be smaller
 columnDefs[1]['width'] = 10
 
 with l_column:
