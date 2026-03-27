@@ -9,7 +9,7 @@ dependencies = [
     "pybaseball>=2.2.7",
     "requests>=2.32.4",
     "streamlit>=1.45.1",
-    "streamlit-aggrid>=1.1.5.post1",
+    "streamlit-aggrid>=1.2.0.post1",
     "unidecode>=1.4.0",
     "yahoo-fantasy-api>=2.12.2",
 ]
