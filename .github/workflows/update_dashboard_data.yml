@@ -33,7 +33,7 @@ jobs:
           cache: 'pip'
       #
       - name: Install Requirements
-        run: pip install -r requirements_data.txt
+        run: pip install -r requirements.txt
       #
       - name: Gather Data
         env: 

@@ -183,7 +183,7 @@ if chosen_position in BATTING_POSITIONS:
     table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'Runs', 'SBs', 'wRC+', 'xwOBA',
                          'HH%', 'Rank', 'on_team']]
 else:
-    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'Ws', 'SVs', 'Stuff+', 'xERA',
+    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'QS', 'SVs', 'Stuff+', 'xERA',
                          'K-BB%', 'Rank', 'on_team']]
 
 # Formats name, e.g. Bo Bichette -> B. Bichette
@@ -192,7 +192,7 @@ table_df['Name'] = table_df.apply(lambda row: \
                                   axis=1)
 
 # Define certain columns which can be smaller by default
-small_cols = ['ABs', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'Ws', 'SVs', 'Rank']
+small_cols = ['ABs', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'QS', 'SVs', 'Rank']
 
 # Define column options for each column we want to include
 columnDefs = [

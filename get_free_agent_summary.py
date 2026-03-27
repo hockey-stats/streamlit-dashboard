@@ -27,6 +27,9 @@ TEAM_MAPPING = {
 # All the positions that we will be collecting data for
 POSITIONS = ['1B', '2B', '3B', 'SS', 'C', 'OF', 'SP', 'RP']
 
+LEAGUE_NAME = "Save the A's"
+SEASON = 2026
+
 
 def create_session() -> OAuth2:
     """
@@ -134,7 +137,7 @@ def collect_pitcher_stats(player_ids: list, league: yfa.League, position: str) -
         "era": [],
         "whip": [],
         "k": [],
-        "w": [],
+        "qs": [],
         "sv": [],
         "term": []
     }
@@ -159,7 +162,7 @@ def collect_pitcher_stats(player_ids: list, league: yfa.League, position: str) -
             p_dict['era'].append(stats['ERA'])
             p_dict['whip'].append(stats['WHIP'])
             p_dict['k'].append(int(stats['K']))
-            p_dict['w'].append(int(stats['W']))
+            p_dict['qs'].append(int(stats['QS']))
             p_dict['sv'].append(int(stats['SV']))
             p_dict['term'].append(term)
 
@@ -403,7 +406,7 @@ def compute_z_scores(batter_df: pl.DataFrame, player_type: str) -> pl.DataFrame:
     if player_type == 'batters':
         columns = ['ab', 'avg', 'r', 'hr', 'rbi', 'sb']
     else:
-        columns = ['ip', 'era', 'whip', 'k', 'w', 'sv']
+        columns = ['ip', 'era', 'whip', 'k', 'qs', 'sv']
 
     for term in ['season', 'month', 'week']:
         # Compute z-scores seperately for each term
@@ -429,7 +432,7 @@ def compute_z_scores(batter_df: pl.DataFrame, player_type: str) -> pl.DataFrame:
                 ((pl.col('z_era') +\
                   pl.col('z_whip') +\
                   pl.col('z_k') +\
-                  pl.col('z_w') +\
+                  pl.col('z_qs') +\
                   pl.col('z_sv') +\
                   pl.col('z_ip')) / 6).alias('z_total')
             )
@@ -463,7 +466,13 @@ def main() -> None:
     # Authenticate the session and get the League object to query against
     session = create_session()
     game = yfa.Game(session, 'mlb')
-    league = yfa.League(session, game.league_ids()[1])
+
+    for i in game.league_ids():
+        league = yfa.League(session, i)
+        league_info = league.__dict__['settings_cache']
+        if league_info['name'] == LEAGUE_NAME and int(league_info['season']) == SEASON:
+            print("Found correct league....")
+            break
 
     # Get every player that's already on a team
     taken = league.taken_players()
@@ -525,7 +534,7 @@ def main() -> None:
         "positions": "Position(s)",
         "ip": "IP",
         "k": "Ks",
-        "w": "Ws",
+        "qs": "QS",
         "sv": "SVs",
         "era": "ERA",
         "whip": "WHIP",
