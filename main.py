@@ -60,7 +60,7 @@ def load_data(today: str) -> None:
     :raises ValueError: Raises a ValueError if an artifact with today's timestamp is not found.
     """
 
-    url = "https://api.github.com/repos/hockey-stats/chart-plotting/actions/artifacts"
+    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/artifacts"
     payload = {}
     headers = {
         'Authorization': f'Bearer {os.environ["GITHUB_PAT"]}'
