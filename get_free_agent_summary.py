@@ -169,8 +169,9 @@ def collect_pitcher_stats(player_ids: list, league: yfa.League, position: str) -
     # Collect yahoo stats into DF
     y_df = pl.DataFrame(p_dict)
 
+
     # Now get full-season stats with pybaseball
-    p_df = pb.pitching_stats(2025, qual=5)[['Name', 'Team', 'K-BB%', 'xERA', 'Stuff+', 'G', 'GS']]
+    p_df = pb.pitching_stats(2026, qual=1)[['Name', 'Team', 'K-BB%', 'xERA', 'Stuff+', 'G', 'GS']]
     p_df['team'] = p_df['Team']
     del p_df['Team']
 
@@ -203,6 +204,7 @@ def collect_pitcher_stats(player_ids: list, league: yfa.League, position: str) -
     # Join the two DFs and return
     df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
     df = df.drop("last_name", "name_right")
+
 
     return df
 
@@ -266,7 +268,7 @@ def collect_batter_stats(player_ids: list, league: yfa.League) -> pl.DataFrame:
     y_df = pl.DataFrame(p_dict)
 
     # Now get full-season stats with pybaseball
-    p_df = pb.batting_stats(2025, qual=20)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
+    p_df = pb.batting_stats(2026, qual=20)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
     p_df['team'] = p_df['Team']
     del p_df['Team']
 

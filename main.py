@@ -18,12 +18,12 @@ ACCENT = "teal"
 # Define minimum thresholds for players to meet to be displayed over a given term
 THRESHOLDS = {
     "All Batters": {
-        "week": 15,
+        "week": 4,
         "month": 50,
         "season": 100
     },
     "SP": {
-        "week": 6,
+        "week": 1,
         "month": 10,
         "season": 80
     },
@@ -120,24 +120,20 @@ st.markdown(
     """
 )
 
-# Get two columns for our page
-l_column, r_column = st.columns([0.53, 0.47])
 
 # Add the position selector to left column...
-with l_column:
-    chosen_position = st.selectbox(
-        label="Position:",
-        options=ALL_POSITIONS,
-    )
+chosen_position = st.selectbox(
+    label="Position:",
+    options=ALL_POSITIONS,
+)
 
 # ... and term selector on the right
-with r_column:
-    chosen_term = st.radio(
-        label="Chosen term:",
-        options=['Last Week', 'Last Month', 'Full Season'],
-        index=0,
-        horizontal=True
-    )
+chosen_term = st.radio(
+    label="Chosen term:",
+    options=['Last Week', 'Last Month', 'Full Season'],
+    index=0,
+    horizontal=True
+)
 
 # Load the correct CSV for chosen position
 if chosen_position in BATTING_POSITIONS:
@@ -184,10 +180,12 @@ table_df = table_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in BATTING_POSITIONS:
-    table_df = table_df[['Name', 'ABs', 'AVG', 'HRs', 'RBIs', 'Runs', 'SBs', 'wRC+', 'xwOBA',
+    table_df = table_df[['Name', 'Position(s)', 'Team', 'ABs', 'AVG', 'HRs', 'RBIs', 
+                         'Runs', 'SBs', 'wRC+', 'xwOBA',
                          'HH%', 'Rank', 'on_team']]
 else:
-    table_df = table_df[['Name', 'IP', 'ERA', 'WHIP', 'Ks', 'QS', 'SVs', 'Stuff+', 'xERA',
+    table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA', 
+                         'WHIP', 'Ks', 'QS', 'SVs', 'Stuff+', 'xERA',
                          'K-BB%', 'Rank', 'on_team']]
 
 # Formats name, e.g. Bo Bichette -> B. Bichette
@@ -196,8 +194,10 @@ table_df = table_df.with_columns(
                                 return_dtype=pl.String)
 )
 
+table_df = table_df.rename({'Position(s)': 'Pos.'})
+
 # Define certain columns which can be smaller by default
-small_cols = ['ABs', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'QS', 'SVs', 'Rank']
+small_cols = ['ABs', 'Team', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'QS', 'SVs', 'Rank']
 
 # Define column options for each column we want to include
 columnDefs = [
@@ -220,7 +220,7 @@ for colDef in columnDefs:
     elif colDef['field'] in {'ERA', 'WHIP', 'xERA'}:
         colDef['type'] = ['numericColumn', 'customNumericFormat']
         colDef['precision'] = 2
-    elif colDef['field'] in {'K-BB%', 'HardHit%'}:
+    elif colDef['field'] in {'K-BB%', 'HH%'}:
         colDef['type'] = ['numericColumn', 'customNumericFormat']
         colDef['precision'] = 1
 
@@ -231,39 +231,38 @@ columnDefs[0]['width'] = 70
 # Second column (either ABs or IPs) and last column can also be smaller
 columnDefs[1]['width'] = 10
 
-with l_column:
-    # Define CSS rule to color the rows for every player on our team.
-    cellStyle = JsCode(
-        r"""
-        function(cellClassParams) {
-            if (cellClassParams.data.on_team) {
-                return {'background-color': '#a6761d'}
-            }
-            return {};
-        }
-        """)
+# Define CSS rule to color the rows for every player on our team.
+cellStyle = JsCode(
+r"""
+function(cellClassParams) {
+		if (cellClassParams.data.on_team) {
+				return {'background-color': '#a6761d'}
+		}
+		return {};
+}
+""")
 
-    # Define the font size for the table
-    css = {
-            ".ag-row": {"font-size": "12pt"},
-            ".ag-header": {"font-size": "12pt"}
-        }
+# Define the font size for the table
+css = {
+		".ag-row": {"font-size": "10pt"},
+		".ag-header": {"font-size": "10pt"}
+}
 
-    grid_builder = GridOptionsBuilder.from_dataframe(table_df)
-    grid_options = grid_builder.build()
+grid_builder = GridOptionsBuilder.from_dataframe(table_df)
+grid_options = grid_builder.build()
 
-    # Add the cell style rule to each column
-    grid_options['defaultColDef']['cellStyle'] = cellStyle
-    # Set height/width of columns automatically
-    grid_options['defaultColDef']['autoHeight'] = True
-    grid_options['defaultColDef']['autoWidth'] = True
+# Add the cell style rule to each column
+grid_options['defaultColDef']['cellStyle'] = cellStyle
+# Set height/width of columns automatically
+grid_options['defaultColDef']['autoHeight'] = True
+grid_options['defaultColDef']['autoWidth'] = True
 
-    grid_options['columnDefs'] = columnDefs
+grid_options['columnDefs'] = columnDefs
 
-    # Add the table to our dashboard
-    AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
-           fit_columns_on_grid_load=True, custom_css=css,
-           height=485)
+# Add the table to our dashboard
+AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
+	 fit_columns_on_grid_load=True, custom_css=css,
+	 height=485)
 
 ########################################################################################
 ##  End Table ##########################################################################
@@ -310,38 +309,41 @@ plot_df = plot_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(di
 
 # Create a last name column to use for chart labels
 plot_df = plot_df.with_columns(
-    pl.col('Name').map_elements(lambda row: ' '.join(row['Name'].split(' '[1:])),
+    pl.col('Name').map_elements(lambda x: ' '.join(x.split(' ')[1:]),
                                 return_dtype=pl.String).alias('last_name')
 )
 
-with r_column:
-    # Creates a scatter plot of players for each position, highlighting players on our team
-    chart = (
-        alt.Chart(plot_df,
-                  width=300,
-                  height=600)
-        .mark_circle()
-        .encode(
-            color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
-            size=size_encoding,
-            tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
-            x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
-            y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
-            text='Name')
-    )
+# Plot breaks if some values are extreme i guess
+if chosen_position not in BATTING_POSITIONS:
+   plot_df = plot_df.filter(pl.col('xERA').le(5.5))
 
-    # Create the corresponding labels for each player to add to the plot
-    labels = chart.mark_text(
-        align='left',
-        dx=9,
-        dy=9,
-        fontSize=10,
-        limit=100
-    ).encode(
-        text='last_name',
-        size='label_size'
-    )
-    st.altair_chart(chart + labels)
+# Creates a scatter plot of players for each position, highlighting players on our team
+chart = (
+    alt.Chart(plot_df,
+              width=300,
+              height=600)
+    .mark_circle()
+    .encode(
+        color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
+        size=size_encoding,
+        tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
+        x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
+        y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
+        text='Name')
+)
+
+# Create the corresponding labels for each player to add to the plot
+labels = chart.mark_text(
+    align='left',
+    dx=9,
+    dy=9,
+    fontSize=10,
+    limit=100
+).encode(
+    text='last_name',
+    size='label_size'
+)
+st.altair_chart(chart + labels)
 
 ########################################################################################
 ##  End Plot ###########################################################################
