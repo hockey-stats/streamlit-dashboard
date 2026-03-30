@@ -268,7 +268,7 @@ def collect_batter_stats(player_ids: list, league: yfa.League) -> pl.DataFrame:
     y_df = pl.DataFrame(p_dict)
 
     # Now get full-season stats with pybaseball
-    p_df = pb.batting_stats(2026, qual=20)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
+    p_df = pb.batting_stats(2026, qual=3)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
     p_df['team'] = p_df['Team']
     del p_df['Team']
 
