@@ -144,9 +144,9 @@ if chosen_position in BATTING_POSITIONS:
     if chosen_position != 'All Batters':
         df = df.filter(pl.col('Position(s)').str.contains(chosen_position))
     # Rename HardHit% and present in full percentages
-    df = df.with_columns(
-        (pl.col('HardHit%') * 100).alias('HH%')
-    )
+    #df = df.with_columns(
+    #    (pl.col('HardHit%') * 100).alias('HH%')
+    #)
 
 # For the pitchers DataFrames, scale K-BB% up to be a raw percentage
 elif chosen_position in PITCHING_POSITIONS:
