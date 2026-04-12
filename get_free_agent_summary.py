@@ -171,40 +171,42 @@ def collect_pitcher_stats(player_ids: list, league: yfa.League, position: str) -
 
 
     # Now get full-season stats with pybaseball
-    p_df = pb.pitching_stats(2026, qual=1)[['Name', 'Team', 'K-BB%', 'xERA', 'Stuff+', 'G', 'GS']]
-    p_df['team'] = p_df['Team']
-    del p_df['Team']
+    #p_df = pb.pitching_stats(2026, qual=1)[['Name', 'Team', 'K-BB%', 'xERA', 'Stuff+', 'G', 'GS']]
+    #p_df['team'] = p_df['Team']
+    #del p_df['Team']
 
-    # Update teams for traded players
-    #p_df = fix_teams_for_traded_pitchers(p_df)
+    ## Update teams for traded players
+    ##p_df = fix_teams_for_traded_pitchers(p_df)
 
-    # And convert back to polars
-    p_df = pl.from_pandas(p_df)
-    p_df = p_df.rename({"Name": "name"})
+    ## And convert back to polars
+    #p_df = pl.from_pandas(p_df)
+    #p_df = p_df.rename({"Name": "name"})
 
-    if position == 'SP':
-        # If looking for starters, remove every pitcher with 0 starts
-        p_df = p_df.remove(pl.col("GS") == 0)
-    elif position == 'RP':
-        # If looking for relievers, remove every pitcher with as many starts as appearances
-        p_df = p_df.remove(pl.col("GS") == pl.col("G"))
+    #if position == 'SP':
+    #    # If looking for starters, remove every pitcher with 0 starts
+    #    p_df = p_df.remove(pl.col("GS") == 0)
+    #elif position == 'RP':
+    #    # If looking for relievers, remove every pitcher with as many starts as appearances
+    #    p_df = p_df.remove(pl.col("GS") == pl.col("G"))
 
-    # Remove the games/starts column
-    p_df = p_df.drop("G", "GS")
+    ## Remove the games/starts column
+    #p_df = p_df.drop("G", "GS")
 
-    # Add a last_name column to both dataframes for the join (different sources might have
-    # different first names)
-    p_df = p_df.with_columns(
-        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    )
-    y_df = y_df.with_columns(
-        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    )
+    ## Add a last_name column to both dataframes for the join (different sources might have
+    ## different first names)
+    #p_df = p_df.with_columns(
+    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    #)
+    #y_df = y_df.with_columns(
+    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    #)
 
-    # Join the two DFs and return
-    df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
-    df = df.drop("last_name", "name_right")
+    ## Join the two DFs and return
+    #df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
+    #df = df.drop("last_name", "name_right")
 
+    # Disable data enrichment with fangraphs stuff for now
+    df = y_df
 
     return df
 
@@ -268,32 +270,34 @@ def collect_batter_stats(player_ids: list, league: yfa.League) -> pl.DataFrame:
     y_df = pl.DataFrame(p_dict)
 
     # Now get full-season stats with pybaseball
-    p_df = pb.batting_stats(2026, qual=3)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
-    p_df['team'] = p_df['Team']
-    del p_df['Team']
+    #p_df = pb.batting_stats(2026, qual=3)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
+    #p_df['team'] = p_df['Team']
+    #del p_df['Team']
 
-    # Update teams for traded players
-    #p_df = fix_teams_for_traded_batters(p_df)
+    ## Update teams for traded players
+    ##p_df = fix_teams_for_traded_batters(p_df)
 
-    # Now convert to polars and rename columns
-    p_df = pl.from_pandas(p_df)
-    p_df = p_df.rename({"Name": "name"})
+    ## Now convert to polars and rename columns
+    #p_df = pl.from_pandas(p_df)
+    #p_df = p_df.rename({"Name": "name"})
 
-    p_df = p_df.with_columns(pl.col('xwOBA').cast(pl.Decimal(10, 3)))
+    #p_df = p_df.with_columns(pl.col('xwOBA').cast(pl.Decimal(10, 3)))
 
-    # Add a last_name column to both dataframes for the join (different sources might have
-    # different versions of first names)
-    p_df = p_df.with_columns(
-        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    )
-    y_df = y_df.with_columns(
-        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    )
+    ## Add a last_name column to both dataframes for the join (different sources might have
+    ## different versions of first names)
+    #p_df = p_df.with_columns(
+    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    #)
+    #y_df = y_df.with_columns(
+    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    #)
 
-    # Join the two DFs and return
-    df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
-    df = df.drop("name_right")
-    df = df.drop("last_name")
+    ## Join the two DFs and return
+    #df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
+    #df = df.drop("name_right")
+    #df = df.drop("last_name")
+
+    df = y_df
 
     return df
 
