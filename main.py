@@ -153,9 +153,9 @@ elif chosen_position in PITCHING_POSITIONS:
     df = pl.read_csv("data/pitcher_data.csv")
     if chosen_position != 'All Pitchers':
         df = df.filter(pl.col('Position(s)').str.contains(chosen_position))
-    df = df.with_columns(
-        (pl.col('K-BB%') * 100)
-    )
+    #df = df.with_columns(
+    #    (pl.col('K-BB%') * 100)
+    #)
 
 
 
