@@ -13,6 +13,8 @@ env:
 jobs:
   get-data:
     runs-on: ubuntu-latest
+    container:
+      image: sohraub/chart-plotter:main
     ###
     steps:
       - name: Checkout
