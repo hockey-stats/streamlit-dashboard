@@ -28,15 +28,6 @@ jobs:
           --output ./oauth.json oauth.json.gpg;
           ls
       #
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-      #
-      - name: Install Requirements
-        run: pip install -r requirements.txt
-      #
       - name: Gather Data
         env: 
           PYTHONPATH: ${{ github.workspace }}
