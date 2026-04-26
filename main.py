@@ -120,7 +120,6 @@ st.markdown(
     """
 )
 
-
 # Add the position selector to left column...
 chosen_position = st.selectbox(
     label="Position:",
@@ -180,13 +179,10 @@ table_df = table_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in BATTING_POSITIONS:
-    table_df = table_df[['Name', 'Position(s)', 'Team', 'ABs', 'AVG', 'HRs', 'RBIs', 
-                         'Runs', 'SBs', 'Rank', 'on_team']]
-    #table_df = table_df[['Name', 'Position(s)', 'Team', 'ABs', 'AVG', 'HRs', 'RBIs', 
-    #                     'Runs', 'SBs', 'wRC+', 'xwOBA',
-    #                     'HH%', 'Rank', 'on_team']]
+    table_df = table_df[['Name', 'Position(s)', 'Team', 'ABs', 'AVG', 'HRs', 'RBIs',
+                         'Runs', 'SBs', 'wRC+', 'xwOBA', 'Rank', 'on_team']]
 else:
-    table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA', 
+    table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA',
                          'WHIP', 'Ks', 'QS', 'SVs', 'Rank', 'on_team']]
     #table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA', 
     #                     'WHIP', 'Ks', 'QS', 'SVs', 'Stuff+', 'xERA',
@@ -279,13 +275,14 @@ AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
 # Define different x/y values and domains based on whether we're looking at hitters
 # or pitchers. Also define a column, `size_encoding`, that will be used to determine
 # the size of the markers on the plot.
-#if chosen_position in BATTING_POSITIONS:
-#    x_val = 'xwOBA'
-#    y_val = 'wRC+'
-#    size_encoding = 'HH%'
-#    x_domain = [0.2, 0.45]
-#    y_domain = [50, 200]
-#else:
+if chosen_position in BATTING_POSITIONS:
+    x_val = 'xwOBA'
+    y_val = 'wRC+'
+    size_encoding = 'HH%'
+    x_domain = [0.2, 0.45]
+    y_domain = [50, 200]
+else:
+    pass
 #    x_val = 'xERA'
 #    y_val = 'Stuff+'
 #    size_encoding = 'K-BB%'
@@ -293,61 +290,60 @@ AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
 #    y_domain = [80, 135]
 #
 ## Create a specific DF for the plot object
-#plot_df = df.filter(pl.col('term') == term)
-#
-## Apply minimum thresholds
-#if chosen_position in BATTING_POSITIONS:
-#    plot_df = plot_df.filter((pl.col('ABs').ge(THRESHOLDS['All Batters'][term])) | (pl.col('on_team') is True))
-#    plot_df = plot_df.with_columns(
-#        pl.lit(1.4).alias('label_size')
-#    )
+plot_df = df.filter(pl.col('term') == term)
+
+# Apply minimum thresholds
+if chosen_position in BATTING_POSITIONS:
+    plot_df = plot_df.filter((pl.col('ABs').ge(THRESHOLDS['All Batters'][term])) | (pl.col('on_team') is True))
+    plot_df = plot_df.with_columns(
+        pl.lit(1.4).alias('label_size')
+    )
 #else:
 #    plot_df = plot_df.filter((pl.col('IP').ge(THRESHOLDS[chosen_position][term])) | (pl.col('on_team') is True))
 #    plot_df = plot_df.with_columns(
 #        pl.lit(1).alias('label_size')
 #    )
 #
-#display_number = 25 if 'All' in chosen_position else 15
-#
-#plot_df = plot_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(display_number)
-#
-## Create a last name column to use for chart labels
-#plot_df = plot_df.with_columns(
-#    pl.col('Name').map_elements(lambda x: ' '.join(x.split(' ')[1:]),
-#                                return_dtype=pl.String).alias('last_name')
-#)
-#
-## Plot breaks if some values are extreme i guess
-#if chosen_position not in BATTING_POSITIONS:
-#   plot_df = plot_df.filter(pl.col('xERA').le(5.5))
-#
-## Creates a scatter plot of players for each position, highlighting players on our team
-#chart = (
-#    alt.Chart(plot_df,
-#              width=300,
-#              height=600)
-#    .mark_circle()
-#    .encode(
-#        color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
-#        size=size_encoding,
-#        tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
-#        x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
-#        y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
-#        text='Name')
-#)
-#
-## Create the corresponding labels for each player to add to the plot
-#labels = chart.mark_text(
-#    align='left',
-#    dx=9,
-#    dy=9,
-#    fontSize=10,
-#    limit=100
-#).encode(
-#    text='last_name',
-#    size='label_size'
-#)
-#st.altair_chart(chart + labels)
+display_number = 25 if 'All' in chosen_position else 15
+
+plot_df = plot_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(display_number)
+
+# Create a last name column to use for chart labels
+plot_df = plot_df.with_columns(
+    pl.col('Name').map_elements(lambda x: ' '.join(x.split(' ')[1:]),
+                                return_dtype=pl.String).alias('last_name')
+)
+
+# Plot breaks if some values are extreme i guess
+if chosen_position not in BATTING_POSITIONS:
+   plot_df = plot_df.filter(pl.col('xERA').le(5.5))
+
+# Creates a scatter plot of players for each position, highlighting players on our team
+chart = (
+    alt.Chart(plot_df,
+              width=300,
+              height=600)
+    .mark_circle()
+    .encode(
+        color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
+        tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
+        x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
+        y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
+        text='Name')
+)
+
+# Create the corresponding labels for each player to add to the plot
+labels = chart.mark_text(
+    align='left',
+    dx=9,
+    dy=9,
+    fontSize=10,
+    limit=100
+).encode(
+    text='last_name',
+    size='label_size'
+)
+st.altair_chart(chart + labels)
 
 ########################################################################################
 ##  End Plot ###########################################################################

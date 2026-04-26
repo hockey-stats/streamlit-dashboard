@@ -7,6 +7,8 @@ import yahoo_fantasy_api as yfa
 from yahoo_oauth import OAuth2
 from unidecode import unidecode
 
+from get_detailed_batter_stats import get_detailed_batter_stats
+
 #from util.fix_traded_mlb_players import fix_teams_for_traded_batters, fix_teams_for_traded_pitchers
 
 oauth_logger = logging.getLogger('yahoo_oauth')
@@ -269,35 +271,31 @@ def collect_batter_stats(player_ids: list, league: yfa.League) -> pl.DataFrame:
     # Collect yahoo stats into DF
     y_df = pl.DataFrame(p_dict)
 
-    # Now get full-season stats with pybaseball
-    #p_df = pb.batting_stats(2026, qual=3)[['Name', 'Team', 'wRC+', 'xwOBA', 'HardHit%']]
-    #p_df['team'] = p_df['Team']
-    #del p_df['Team']
+    # Now get advanced stats
+    p_df = get_detailed_batter_stats(2026)[['Name', 'Team', 'wRC+', 'xwOBA']]
+    p_df = p_df.rename({
+        "Team": "team",
+        "Name": "name"
+    })
 
     ## Update teams for traded players
     ##p_df = fix_teams_for_traded_batters(p_df)
 
-    ## Now convert to polars and rename columns
-    #p_df = pl.from_pandas(p_df)
-    #p_df = p_df.rename({"Name": "name"})
-
-    #p_df = p_df.with_columns(pl.col('xwOBA').cast(pl.Decimal(10, 3)))
+    p_df = p_df.with_columns(pl.col('xwOBA').cast(pl.Decimal(10, 3)))
 
     ## Add a last_name column to both dataframes for the join (different sources might have
     ## different versions of first names)
-    #p_df = p_df.with_columns(
-    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    #)
-    #y_df = y_df.with_columns(
-    #    (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
-    #)
+    p_df = p_df.with_columns(
+        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    )
+    y_df = y_df.with_columns(
+        (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias("last_name")
+    )
 
     ## Join the two DFs and return
-    #df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
-    #df = df.drop("name_right")
-    #df = df.drop("last_name")
-
-    df = y_df
+    df = y_df.join(p_df, how='inner', on=['last_name', 'team'])
+    df = df.drop("name_right")
+    df = df.drop("last_name")
 
     return df
 
