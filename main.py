@@ -278,7 +278,6 @@ AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
 if chosen_position in BATTING_POSITIONS:
     x_val = 'xwOBA'
     y_val = 'wRC+'
-    size_encoding = 'HH%'
     x_domain = [0.2, 0.45]
     y_domain = [50, 200]
 else:
@@ -323,10 +322,10 @@ chart = (
     alt.Chart(plot_df,
               width=300,
               height=600)
-    .mark_circle()
+    .mark_circle(size=150)
     .encode(
         color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
-        tooltip=['Name', 'Team', 'Rank', y_val, x_val, size_encoding, 'Position(s)'],
+        tooltip=['Name', 'Team', 'Rank', y_val, x_val, 'Position(s)'],
         x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
         y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
         text='Name')
@@ -337,11 +336,10 @@ labels = chart.mark_text(
     align='left',
     dx=9,
     dy=9,
-    fontSize=10,
+    fontSize=14,
     limit=100
 ).encode(
     text='last_name',
-    size='label_size'
 )
 st.altair_chart(chart + labels)
 
