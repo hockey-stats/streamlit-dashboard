@@ -208,17 +208,11 @@ def collect_pitcher_stats(
         )
     )
 
-    print("before merge")
-    print(y_df)
-    print(p_df)
-
     ## Join the two DFs and return
     df = y_df.join(p_df, how="inner", on=["last_name", "team"])
     df = df.drop("name_right")
     df = df.drop("last_name")
 
-    print("after merge")
-    print(df)
     return df
 
 
@@ -566,7 +560,7 @@ def main() -> None:
             "sb": "SBs",
         }
     )
-    batter_df.drop("id")
+    batter_df = batter_df.drop("id")
 
     pitcher_df = pitcher_df.rename(
         {
@@ -581,7 +575,7 @@ def main() -> None:
             "whip": "WHIP",
         }
     )
-    pitcher_df.drop("id")
+    pitcher_df = pitcher_df.drop("id")
 
     # Save output
     pitcher_df.write_csv("pitcher_data.csv")

@@ -2,9 +2,13 @@ import os
 import json
 import zipfile
 from datetime import datetime, timedelta
+from typing import Any
 import requests
 import streamlit as st
 import polars as pl
+import pandas as pd
+import get_matchup_data
+import get_league_weekly_stats
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
@@ -97,12 +101,128 @@ if today.hour <= 7:
     today -= timedelta(days=1)
 load_data(today.strftime("%Y-%m-%d"))
 
+
+@st.cache_data
+def load_matchup_data() -> pl.DataFrame:
+    """Wrapper to fetch and cache matchup data."""
+    return get_matchup_data.main()
+
+
+@st.cache_data
+def load_league_weekly_stats() -> pl.DataFrame:
+    """Wrapper to fetch and cache league weekly stats."""
+    return get_league_weekly_stats.run()
+
+
+def style_matchup(df: pd.DataFrame) -> Any:
+    """Applies highlighting to the leading team in each category."""
+
+    def color_leading(col):
+        if col.name in {"team", "HITS/AB", "IP"}:
+            return [""] * len(col)
+
+        # Convert to numeric for comparison, handling potential non-numeric strings
+        numeric_col: Any = pd.to_numeric(col, errors="coerce")
+        if numeric_col.isna().all():
+            return [""] * len(col)
+
+        if col.name in {"ERA", "WHIP"}:
+            best_val = numeric_col.min()
+        else:
+            best_val = numeric_col.max()
+
+        return [
+            "background-color: #a6761d; color: white; font-weight: bold"
+            if val == best_val and not pd.isna(val)
+            else ""
+            for val in numeric_col
+        ]
+
+    return df.style.apply(color_leading)
+
+
 # Set title
 st.markdown(
     """
     # Interesting Free Agents
     """
 )
+
+# Fetch and display matchup data
+st.markdown("### This Week's Matchup")
+matchup_df = load_matchup_data()
+if not matchup_df.is_empty():
+    styled_matchup = style_matchup(matchup_df.to_pandas())
+    st.dataframe(styled_matchup, hide_index=True, use_container_width=True)
+else:
+    st.write("Matchup data not found.")
+
+# Fetch and display league weekly stats
+st.markdown("### League Weekly Stats")
+with st.expander("League-wide Performance (Past Week)", expanded=True):
+    league_stats_df = load_league_weekly_stats()
+    if not league_stats_df.is_empty():
+        # Filter for the most recent week
+        latest_week = league_stats_df["week"].max()
+        st.write(f"**Week {latest_week} Summary**")
+
+        # Filter and prepare for transpose
+        # Drop non-category columns and cast to float for consistency with averages
+        display_df = (
+            league_stats_df.filter(pl.col("week") == latest_week)
+            .drop(["week", "HITS/AB"])
+            .with_columns(pl.all().exclude("team").cast(pl.Float64))
+        )
+
+        # Calculate Average Column
+        avg_data = display_df.select(pl.all().exclude("team").mean())
+        avg_row = avg_data.with_columns(pl.lit("League Average").alias("team")).select(
+            display_df.columns
+        )
+
+        # Reorder teams: Average first, then My team, then the rest
+        my_team_name = "Ghostface millers"
+        all_teams = display_df["team"].to_list()
+        my_team = next(
+            (t for t in all_teams if t.lower() == my_team_name.lower()), my_team_name
+        )
+        other_teams = [t for t in all_teams if t != my_team]
+
+        # Combine into ordered dataframe
+        ordered_df = pl.concat(
+            [
+                avg_row,
+                display_df.filter(pl.col("team") == my_team),
+                display_df.filter(pl.col("team").is_in(other_teams)),
+            ],
+            how="vertical",
+        )
+
+        # Convert to pandas and transpose: index will be categories, columns will be teams
+        pd_stats = ordered_df.to_pandas().set_index("team").T
+
+        # Round the values in the dataframe itself for display
+        for category in pd_stats.index:
+            for team in pd_stats.columns:
+                val = pd_stats.loc[category, team]
+                if pd.isna(val):
+                    pd_stats.loc[category, team] = "-"
+                    continue
+
+                if category == "AVG":
+                    pd_stats.loc[category, team] = f"{val:.3f}"
+                elif category in {"ERA", "WHIP"}:
+                    pd_stats.loc[category, team] = f"{val:.2f}"
+                else:  # Counting stats
+                    if team == "League Average":
+                        pd_stats.loc[category, team] = f"{val:.1f}"
+                    else:
+                        pd_stats.loc[category, team] = int(val)
+
+        st.table(pd_stats)
+    else:
+        st.write("League stats data not found.")
+
 
 # Add the position selector to left column...
 chosen_position = st.selectbox(
@@ -136,6 +256,8 @@ elif chosen_position in PITCHING_POSITIONS:
     df = pl.read_csv("data/pitcher_data.csv")
     if chosen_position != "All Pitchers":
         df = df.filter(pl.col("Position(s)").str.contains(chosen_position))
+else:
+    df = pl.DataFrame()
 
 
 ########################################################################################
@@ -276,7 +398,7 @@ function(cellClassParams) {
 # Define the font size for the table
 css = {".ag-row": {"font-size": "10pt"}, ".ag-header": {"font-size": "10pt"}}
 
-grid_builder = GridOptionsBuilder.from_dataframe(table_df)
+grid_builder = GridOptionsBuilder.from_dataframe(table_df.to_pandas())
 grid_options = grid_builder.build()
 
 # Add the cell style rule to each column
@@ -289,7 +411,7 @@ grid_options["columnDefs"] = columnDefs
 
 # Add the table to our dashboard
 AgGrid(
-    table_df,
+    table_df.to_pandas(),
     gridOptions=grid_options,
     allow_unsafe_jscode=True,
     fit_columns_on_grid_load=True,
@@ -314,14 +436,12 @@ if chosen_position in BATTING_POSITIONS:
     x_domain = [0.2, 0.45]
     y_domain = [50, 200]
 else:
-    pass
-#    x_val = 'xERA'
-#    y_val = 'Stuff+'
-#    size_encoding = 'K-BB%'
-#    x_domain = [5.5, 1.5]
-#    y_domain = [80, 135]
-#
-## Create a specific DF for the plot object
+    x_val = "xERA"
+    y_val = "K-BB%"
+    x_domain = [5.5, 0.5]
+    y_domain = [0, 50.0]
+
+# Create a specific DF for the plot object
 plot_df = df.filter(pl.col("term") == term)
 
 # Apply minimum thresholds
@@ -357,7 +477,7 @@ if chosen_position not in BATTING_POSITIONS:
 # Creates a scatter plot of players for each position, highlighting players on our team
 chart = (
     alt.Chart(plot_df, width=300, height=600)
-    .mark_circle(size=150)
+    .mark_circle()
     .encode(
         color=alt.Color("on_team").scale(
             scheme="dark2", reverse=True, domain=[False, True]
@@ -365,7 +485,6 @@ chart = (
         tooltip=["Name", "Team", "Rank", y_val, x_val, "Position(s)"],
         x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
         y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
-        text="Name",
     )
 )
 
