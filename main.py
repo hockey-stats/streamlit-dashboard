@@ -10,37 +10,21 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 
 ## Constants #########################################################################
-BATTING_POSITIONS = ['C', '1B', '2B', '3B', 'SS', 'OF', 'All Batters']
-PITCHING_POSITIONS = ['SP', 'RP', 'All Pitchers']
+BATTING_POSITIONS = ["C", "1B", "2B", "3B", "SS", "OF", "All Batters"]
+PITCHING_POSITIONS = ["SP", "RP", "All Pitchers"]
 ALL_POSITIONS = BATTING_POSITIONS + PITCHING_POSITIONS
 ACCENT = "teal"
 
 # Define minimum thresholds for players to meet to be displayed over a given term
 THRESHOLDS = {
-    "All Batters": {
-        "week": 4,
-        "month": 50,
-        "season": 100
-    },
-    "SP": {
-        "week": 1,
-        "month": 10,
-        "season": 80
-    },
-    "RP": {
-        "week": 1,
-        "month": 10,
-        "season": 25
-    },
-    "All Pitchers": {
-        "week": 1,
-        "month": 10,
-        "season": 25
-    }
+    "All Batters": {"week": 4, "month": 50, "season": 100},
+    "SP": {"week": 1, "month": 10, "season": 80},
+    "RP": {"week": 1, "month": 10, "season": 25},
+    "All Pitchers": {"week": 1, "month": 10, "season": 25},
 }
 ## End Constants #####################################################################
 
-st.set_page_config(layout='wide')
+st.set_page_config(layout="wide")
 
 
 @st.cache_data
@@ -54,7 +38,7 @@ def load_data(today: str) -> None:
     Expects GitHub PAT with proper permissions to be available as an environment variable under
     'GITHUB_PAT'.
 
-    :param str date: The date we want the data for, in YYYY-mm-dd format, which will usually be 
+    :param str date: The date we want the data for, in YYYY-mm-dd format, which will usually be
                      today. Added as a parameter for caching purposes.
 
     :raises ValueError: Raises a ValueError if an artifact with today's timestamp is not found.
@@ -62,21 +46,19 @@ def load_data(today: str) -> None:
 
     url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/artifacts"
     payload = {}
-    headers = {
-        'Authorization': f'Bearer {os.environ["GITHUB_PAT"]}'
-    }
-    output_filename = 'data.zip'
+    headers = {"Authorization": f"Bearer {os.environ['GITHUB_PAT']}"}
+    output_filename = "data.zip"
 
     # Returns a list of every available artifact for the repo
     response = requests.request("GET", url, headers=headers, data=payload, timeout=10)
     response_body = json.loads(response.text)
 
-    for artifact in response_body['artifacts']:
-        if artifact['name'] == 'dashboard-fa-data':
-            print(artifact['created_at'])
-            artifact_creation_date = artifact['created_at'].split('T')[0]
+    for artifact in response_body["artifacts"]:
+        if artifact["name"] == "dashboard-fa-data":
+            print(artifact["created_at"])
+            artifact_creation_date = artifact["created_at"].split("T")[0]
             if today == artifact_creation_date:
-                download_url = artifact['archive_download_url']
+                download_url = artifact["archive_download_url"]
                 break
                 # Breaks when we find an artifact with the correct name and today's date
     else:
@@ -87,17 +69,19 @@ def load_data(today: str) -> None:
     print("Downloading...")
 
     # Downloads the artifact as a zip file...
-    dl_response = requests.request("GET", download_url, headers=headers, data=payload, timeout=20)
-    with open(output_filename, 'wb') as fo:
+    dl_response = requests.request(
+        "GET", download_url, headers=headers, data=payload, timeout=20
+    )
+    with open(output_filename, "wb") as fo:
         fo.write(dl_response.content)
 
     print("Download complete")
 
     # ... and unzips
-    with zipfile.ZipFile(output_filename, 'r') as zip_ref:
-        zip_ref.extractall('data')
+    with zipfile.ZipFile(output_filename, "r") as zip_ref:
+        zip_ref.extractall("data")
 
-    print(os.listdir('data'))
+    print(os.listdir("data"))
 
     print(f"Data loaded for {artifact_creation_date}")
 
@@ -111,7 +95,7 @@ today = datetime.today()
 # If checking before 7am UTC, use yesterday's data instead, since data hasn't been updated yet
 if today.hour <= 7:
     today -= timedelta(days=1)
-load_data(today.strftime('%Y-%m-%d'))
+load_data(today.strftime("%Y-%m-%d"))
 
 # Set title
 st.markdown(
@@ -129,9 +113,9 @@ chosen_position = st.selectbox(
 # ... and term selector on the right
 chosen_term = st.radio(
     label="Chosen term:",
-    options=['Last Week', 'Last Month', 'Full Season'],
+    options=["Last Week", "Last Month", "Full Season"],
     index=0,
-    horizontal=True
+    horizontal=True,
 )
 
 # Load the correct CSV for chosen position
@@ -139,23 +123,19 @@ if chosen_position in BATTING_POSITIONS:
     df = pl.read_csv("data/batter_data.csv")
     # May arise if a player was just called up, their only position will be 'Util'
     # Just put them as OF
-    df = df.with_columns(pl.col('Position(s)').fill_null(value='OF'))
-    if chosen_position != 'All Batters':
-        df = df.filter(pl.col('Position(s)').str.contains(chosen_position))
+    df = df.with_columns(pl.col("Position(s)").fill_null(value="OF"))
+    if chosen_position != "All Batters":
+        df = df.filter(pl.col("Position(s)").str.contains(chosen_position))
     # Rename HardHit% and present in full percentages
-    #df = df.with_columns(
+    # df = df.with_columns(
     #    (pl.col('HardHit%') * 100).alias('HH%')
-    #)
+    # )
 
 # For the pitchers DataFrames, scale K-BB% up to be a raw percentage
 elif chosen_position in PITCHING_POSITIONS:
     df = pl.read_csv("data/pitcher_data.csv")
-    if chosen_position != 'All Pitchers':
-        df = df.filter(pl.col('Position(s)').str.contains(chosen_position))
-    #df = df.with_columns(
-    #    (pl.col('K-BB%') * 100)
-    #)
-
+    if chosen_position != "All Pitchers":
+        df = df.filter(pl.col("Position(s)").str.contains(chosen_position))
 
 
 ########################################################################################
@@ -163,106 +143,159 @@ elif chosen_position in PITCHING_POSITIONS:
 ########################################################################################
 
 # Table only wants data from the chosen term
-term = chosen_term.split(' ')[-1].lower()
-table_df = df.filter(pl.col('term') == term)
+term = chosen_term.split(" ")[-1].lower()
+table_df = df.filter(pl.col("term") == term)
 
 # Apply minimum thresholds for players not on our team
 if chosen_position in BATTING_POSITIONS:
-    table_df = table_df.filter((pl.col('ABs').ge(THRESHOLDS['All Batters'][term])) | (pl.col('on_team') is True))
+    table_df = table_df.filter(
+        (pl.col("ABs").ge(THRESHOLDS["All Batters"][term]))
+        | (pl.col("on_team") is True)
+    )
 else:
-    table_df = table_df.filter((pl.col('IP').ge(THRESHOLDS[chosen_position][term])) | (pl.col('on_team') is True))
+    table_df = table_df.filter(
+        (pl.col("IP").ge(THRESHOLDS[chosen_position][term]))
+        | (pl.col("on_team") is True)
+    )
 
-display_number = 25 if 'All' in chosen_position else 15
+display_number = 25 if "All" in chosen_position else 15
 
-table_df = table_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(display_number)
+table_df = table_df.sort(by=["on_team", "Rank"], descending=[True, False]).head(
+    display_number
+)
 
 # Don't want to include every single column from the DataFrame. Choose specific columns
 # based on whether we're dealing with hitters or pitchers
 if chosen_position in BATTING_POSITIONS:
-    table_df = table_df[['Name', 'Position(s)', 'Team', 'ABs', 'AVG', 'HRs', 'RBIs',
-                         'Runs', 'SBs', 'wRC+', 'xwOBA', 'Rank', 'on_team']]
+    table_df = table_df[
+        [
+            "Name",
+            "Position(s)",
+            "Team",
+            "ABs",
+            "AVG",
+            "HRs",
+            "RBIs",
+            "Runs",
+            "SBs",
+            "wRC+",
+            "xwOBA",
+            "Rank",
+            "on_team",
+        ]
+    ]
 else:
-    table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA',
-                         'WHIP', 'Ks', 'QS', 'SVs', 'Rank', 'on_team']]
-    #table_df = table_df[['Name', 'Position(s)', 'Team', 'IP', 'ERA', 
-    #                     'WHIP', 'Ks', 'QS', 'SVs', 'Stuff+', 'xERA',
-    #                     'K-BB%', 'Rank', 'on_team']]
+    table_df = table_df[
+        [
+            "Name",
+            "Position(s)",
+            "Team",
+            "IP",
+            "ERA",
+            "WHIP",
+            "Ks",
+            "QS",
+            "SVs",
+            "xERA",
+            "K-BB%",
+            "Rank",
+            "on_team",
+        ]
+    ]
 
 # Formats name, e.g. Bo Bichette -> B. Bichette
 table_df = table_df.with_columns(
-    pl.col('Name').map_elements(lambda x: f"{x[0]}. {' '.join(x.split(' ')[1:])}",
-                                return_dtype=pl.String)
+    pl.col("Name").map_elements(
+        lambda x: f"{x[0]}. {' '.join(x.split(' ')[1:])}", return_dtype=pl.String
+    )
 )
 
-table_df = table_df.rename({'Position(s)': 'Pos.'})
+table_df = table_df.rename({"Position(s)": "Pos."})
 
 # Define certain columns which can be smaller by default
-small_cols = ['ABs', 'Team', 'IPs', 'HRs', 'RBIs', 'Runs', 'SBs', 'Ks', 'QS', 'SVs', 'Rank']
+small_cols = [
+    "ABs",
+    "Team",
+    "IPs",
+    "HRs",
+    "RBIs",
+    "Runs",
+    "SBs",
+    "Ks",
+    "QS",
+    "SVs",
+    "Rank",
+]
 
 # Define column options for each column we want to include
 columnDefs = [
     {
-    'field': col,
-    'headerName': col,
-    'type': 'rightAligned',
-    'width': 13 if col in small_cols else 40,
-    'height': 20,
-    'sortable': True,
-    'sortingOrder': ['desc', 'asc', None]
-    } for col in list(table_df.columns) if col != 'on_team'
+        "field": col,
+        "headerName": col,
+        "type": "rightAligned",
+        "width": 13 if col in small_cols else 40,
+        "height": 20,
+        "sortable": True,
+        "sortingOrder": ["desc", "asc", None],
+    }
+    for col in list(table_df.columns)
+    if col != "on_team"
 ]
 
 # Format the decimal numbers for certain metrics
 for colDef in columnDefs:
-    if colDef['field'] in {'AVG', 'xwOBA'}:
-        colDef['type'] = ['numericColumn', 'customNumericFormat']
-        colDef['precision'] = 3
-    elif colDef['field'] in {'ERA', 'WHIP', 'xERA'}:
-        colDef['type'] = ['numericColumn', 'customNumericFormat']
-        colDef['precision'] = 2
-    elif colDef['field'] in {'K-BB%', 'HH%'}:
-        colDef['type'] = ['numericColumn', 'customNumericFormat']
-        colDef['precision'] = 1
+    if colDef["field"] in {"AVG", "xwOBA"}:
+        colDef["type"] = ["numericColumn", "customNumericFormat"]
+        colDef["precision"] = 3
+    elif colDef["field"] in {"ERA", "WHIP", "xERA"}:
+        colDef["type"] = ["numericColumn", "customNumericFormat"]
+        colDef["precision"] = 2
+    elif colDef["field"] in {"K-BB%", "HH%"}:
+        colDef["type"] = ["numericColumn", "customNumericFormat"]
+        colDef["precision"] = 1
 
 # Set the name column (always the first one) to be left-aligned
-columnDefs[0]['type'] = 'leftAligned'
-columnDefs[0]['width'] = 70
+columnDefs[0]["type"] = "leftAligned"
+columnDefs[0]["width"] = 70
 
 # Second column (either ABs or IPs) and last column can also be smaller
-columnDefs[1]['width'] = 10
+columnDefs[1]["width"] = 10
 
 # Define CSS rule to color the rows for every player on our team.
 cellStyle = JsCode(
-r"""
+    r"""
 function(cellClassParams) {
 		if (cellClassParams.data.on_team) {
 				return {'background-color': '#a6761d'}
 		}
 		return {};
 }
-""")
+"""
+)
 
 # Define the font size for the table
-css = {
-		".ag-row": {"font-size": "10pt"},
-		".ag-header": {"font-size": "10pt"}
-}
+css = {".ag-row": {"font-size": "10pt"}, ".ag-header": {"font-size": "10pt"}}
 
 grid_builder = GridOptionsBuilder.from_dataframe(table_df)
 grid_options = grid_builder.build()
 
 # Add the cell style rule to each column
-grid_options['defaultColDef']['cellStyle'] = cellStyle
+grid_options["defaultColDef"]["cellStyle"] = cellStyle
 # Set height/width of columns automatically
-grid_options['defaultColDef']['autoHeight'] = True
-grid_options['defaultColDef']['autoWidth'] = True
+grid_options["defaultColDef"]["autoHeight"] = True
+grid_options["defaultColDef"]["autoWidth"] = True
 
-grid_options['columnDefs'] = columnDefs
+grid_options["columnDefs"] = columnDefs
 
 # Add the table to our dashboard
-AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
-	 fit_columns_on_grid_load=True, custom_css=css,
-	 height=485)
+AgGrid(
+    table_df,
+    gridOptions=grid_options,
+    allow_unsafe_jscode=True,
+    fit_columns_on_grid_load=True,
+    custom_css=css,
+    height=485,
+)
 
 ########################################################################################
 ##  End Table ##########################################################################
@@ -276,8 +309,8 @@ AgGrid(table_df, gridOptions=grid_options, allow_unsafe_jscode=True,
 # or pitchers. Also define a column, `size_encoding`, that will be used to determine
 # the size of the markers on the plot.
 if chosen_position in BATTING_POSITIONS:
-    x_val = 'xwOBA'
-    y_val = 'wRC+'
+    x_val = "xwOBA"
+    y_val = "wRC+"
     x_domain = [0.2, 0.45]
     y_domain = [50, 200]
 else:
@@ -289,57 +322,56 @@ else:
 #    y_domain = [80, 135]
 #
 ## Create a specific DF for the plot object
-plot_df = df.filter(pl.col('term') == term)
+plot_df = df.filter(pl.col("term") == term)
 
 # Apply minimum thresholds
 if chosen_position in BATTING_POSITIONS:
-    plot_df = plot_df.filter((pl.col('ABs').ge(THRESHOLDS['All Batters'][term])) | (pl.col('on_team') is True))
-    plot_df = plot_df.with_columns(
-        pl.lit(1.4).alias('label_size')
+    plot_df = plot_df.filter(
+        (pl.col("ABs").ge(THRESHOLDS["All Batters"][term]))
+        | (pl.col("on_team") is True)
     )
-#else:
+    plot_df = plot_df.with_columns(pl.lit(1.4).alias("label_size"))
+# else:
 #    plot_df = plot_df.filter((pl.col('IP').ge(THRESHOLDS[chosen_position][term])) | (pl.col('on_team') is True))
 #    plot_df = plot_df.with_columns(
 #        pl.lit(1).alias('label_size')
 #    )
 #
-display_number = 25 if 'All' in chosen_position else 15
+display_number = 25 if "All" in chosen_position else 15
 
-plot_df = plot_df.sort(by=['on_team', 'Rank'], descending=[True, False]).head(display_number)
+plot_df = plot_df.sort(by=["on_team", "Rank"], descending=[True, False]).head(
+    display_number
+)
 
 # Create a last name column to use for chart labels
 plot_df = plot_df.with_columns(
-    pl.col('Name').map_elements(lambda x: ' '.join(x.split(' ')[1:]),
-                                return_dtype=pl.String).alias('last_name')
+    pl.col("Name")
+    .map_elements(lambda x: " ".join(x.split(" ")[1:]), return_dtype=pl.String)
+    .alias("last_name")
 )
 
 # Plot breaks if some values are extreme i guess
 if chosen_position not in BATTING_POSITIONS:
-   plot_df = plot_df.filter(pl.col('xERA').le(5.5))
+    plot_df = plot_df.filter(pl.col("xERA").le(5.5))
 
 # Creates a scatter plot of players for each position, highlighting players on our team
 chart = (
-    alt.Chart(plot_df,
-              width=300,
-              height=600)
+    alt.Chart(plot_df, width=300, height=600)
     .mark_circle(size=150)
     .encode(
-        color=alt.Color('on_team').scale(scheme='dark2', reverse=True, domain=[False, True]),
-        tooltip=['Name', 'Team', 'Rank', y_val, x_val, 'Position(s)'],
+        color=alt.Color("on_team").scale(
+            scheme="dark2", reverse=True, domain=[False, True]
+        ),
+        tooltip=["Name", "Team", "Rank", y_val, x_val, "Position(s)"],
         x=alt.X(x_val, scale=alt.Scale(domain=x_domain)),
         y=alt.Y(y_val, scale=alt.Scale(domain=y_domain)),
-        text='Name')
+        text="Name",
+    )
 )
 
 # Create the corresponding labels for each player to add to the plot
-labels = chart.mark_text(
-    align='left',
-    dx=9,
-    dy=9,
-    fontSize=14,
-    limit=100
-).encode(
-    text='last_name',
+labels = chart.mark_text(align="left", dx=9, dy=9, fontSize=14, limit=100).encode(
+    text="last_name",
 )
 st.altair_chart(chart + labels)
 

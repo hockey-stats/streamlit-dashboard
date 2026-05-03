@@ -55,6 +55,7 @@ def get_team_name(lev: str, tm: str) -> str:
     """
     # Handle multi-team strings like 'Chicago,Houston' by taking the final team
     current_city: str = tm.split(',')[-1].strip()
+    lev: str = lev.split(',')[-1].strip()
 
     mapping: Dict[Tuple[str, str], str] = {
         ("Maj-AL", "Chicago"): "White Sox",
