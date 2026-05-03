@@ -117,7 +117,14 @@ def get_detailed_pitcher_stats(year: int) -> pl.DataFrame:
 
     df = df.rename({"mlbID": "player_id"})
 
-    df = df.with_columns(((pl.col("SO") - pl.col("BB")) / pl.col("BF")).alias("K-BB%"))
+    print(df)
+
+    df = df.with_columns(
+            (pl.col("SO") / pl.col("BF") * 100).alias("K%"),
+            (pl.col("BB") / pl.col("BF") * 100).alias("BB%"),
+    )
+
+    df = df.with_columns((pl.col('K%') - pl.col('BB%')).alias("K-BB%"))
 
     final_df: pl.DataFrame = df.join(xdf, how="inner", on="player_id")
 
@@ -158,5 +165,5 @@ def get_detailed_pitcher_stats(year: int) -> pl.DataFrame:
 if __name__ == "__main__":
     results_df: pl.DataFrame = get_detailed_pitcher_stats(2026)
     with pl.Config(tbl_cols=20, tbl_rows=50):
-        print(results_df.sort(by=pl.col("xERA")))
+        print(results_df.sort(by=pl.col("K-BB%")))
 
