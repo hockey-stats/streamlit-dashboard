@@ -86,6 +86,10 @@ def get_league_weekly_stats(league: yfa.League) -> pl.DataFrame:
         return pl.DataFrame()
 
     df = pl.DataFrame(all_stats)
+
+    # Drop weeks that have no stats yet
+    df = df.filter(pl.col('HITS/AB') != '/')
+
     return df
 
 
@@ -117,3 +121,4 @@ if __name__ == "__main__":
     df = run()
     if not df.is_empty():
         df.write_csv("data/league_weekly_stats.csv")
+

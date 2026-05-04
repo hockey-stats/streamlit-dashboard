@@ -171,7 +171,7 @@ with st.expander("League-wide Performance (Past Week)", expanded=True):
         display_df = (
             league_stats_df.filter(pl.col("week") == latest_week)
             .drop(["week", "HITS/AB"])
-            .with_columns(pl.all().exclude("team").cast(pl.Float64))
+            .with_columns(pl.all().exclude("team").cast(pl.Float64, strict=False))
         )
 
         # Calculate Average Column
