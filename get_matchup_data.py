@@ -4,6 +4,8 @@ from yahoo_oauth import OAuth2
 import logging
 from typing import Any
 
+from get_free_agent_summary import create_session
+
 # Disable yahoo_oauth logging
 oauth_logger = logging.getLogger("yahoo_oauth")
 oauth_logger.disabled = True
@@ -25,16 +27,6 @@ STAT_MAP = {
     "32": "SV",
     "50": "IP",
 }
-
-
-def create_session() -> OAuth2:
-    """
-    Creates the OAuth2 session from a local json. Refreshes token if necessary.
-
-    :return OAuth2: Active OAuth2 session
-    """
-    sc = OAuth2(None, None, from_file="oauth.json")
-    return sc
 
 
 def gather_stats(matchup: dict) -> pl.DataFrame:

@@ -3,8 +3,9 @@ import yahoo_fantasy_api as yfa
 from yahoo_oauth import OAuth2
 import logging
 from typing import Any
-import os
-from get_matchup_data import create_session, STAT_MAP, LEAGUE_NAME, SEASON
+
+from get_free_agent_summary import create_session
+from get_matchup_data import STAT_MAP, LEAGUE_NAME, SEASON
 
 # Disable yahoo_oauth logging
 oauth_logger = logging.getLogger("yahoo_oauth")

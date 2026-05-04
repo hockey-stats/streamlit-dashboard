@@ -21,8 +21,8 @@ ACCENT = "teal"
 
 # Define minimum thresholds for players to meet to be displayed over a given term
 THRESHOLDS = {
-    "All Batters": {"week": 4, "month": 50, "season": 100},
-    "SP": {"week": 1, "month": 10, "season": 80},
+    "All Batters": {"week": 10, "month": 50, "season": 100},
+    "SP": {"week": 3, "month": 10, "season": 80},
     "RP": {"week": 1, "month": 10, "season": 25},
     "All Pitchers": {"week": 1, "month": 10, "season": 25},
 }
