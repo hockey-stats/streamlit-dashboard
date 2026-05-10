@@ -104,6 +104,9 @@ def get_fg_abbreviation(row: Dict[str, Any]) -> str:
     # Clean the team name (handles 'Chicago,Houston' by taking the last team)
     city: str = row['Tm'].split(',')[-1].strip()
 
+    # Do the same with mult-league strings
+    lev: str = row['Lev'].split(',')[-1].strip()
+
     mapping: Dict[Tuple[str, str], str] = {
         ("Maj-AL", "Chicago"): "CHW",
         ("Maj-NL", "Chicago"): "CHC",
@@ -138,7 +141,7 @@ def get_fg_abbreviation(row: Dict[str, Any]) -> str:
         ("Maj-NL", "Washington"): "WSN"
     }
 
-    return mapping.get((row['Lev'], city), city)
+    return mapping.get((lev, city), city)
 
 
 def calculate_woba(row: Dict[str, Any]) -> float:
