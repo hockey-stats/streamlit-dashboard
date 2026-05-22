@@ -10,6 +10,7 @@ from unidecode import unidecode
 
 from get_detailed_batter_stats import get_detailed_batter_stats
 from get_detailed_pitcher_stats import get_detailed_pitcher_stats
+from get_todays_probables import get_probables
 
 # from util.fix_traded_mlb_players import fix_teams_for_traded_batters, fix_teams_for_traded_pitchers
 
@@ -41,10 +42,10 @@ def create_session() -> OAuth2:
 
     :return OAuth2: Active OAuth2 session
     """
-    if not os.path.isfile('oauth.json'):
-        with open('oauth.json', 'w', encoding='utf-8') as f:
-            f.write(os.environ['OAUTH_TOKEN'])
-    sc = OAuth2(None, None, from_file='oauth.json')
+    if not os.path.isfile("oauth.json"):
+        with open("oauth.json", "w", encoding="utf-8") as f:
+            f.write(os.environ["OAUTH_TOKEN"])
+    sc = OAuth2(None, None, from_file="oauth.json")
     return sc
 
 
@@ -584,6 +585,11 @@ def main() -> None:
     # Save output
     pitcher_df.write_csv("pitcher_data.csv")
     batter_df.write_csv("batter_data.csv")
+
+    # Get today's probables
+    probables_df = get_probables()
+    if not probables_df.is_empty():
+        probables_df.write_csv("todays_probables.csv")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,7 @@ import get_matchup_data
 import get_league_weekly_stats
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+import shared
 
 
 ## Constants #########################################################################
@@ -30,76 +31,9 @@ THRESHOLDS = {
 
 st.set_page_config(layout="wide")
 
-
-@st.cache_data
-def load_data(today: str) -> None:
-    """
-    Function to be run at the initialization of the dashboard.
-
-    Downloads all of the relevant CSV data files from GitHub, where they are stored as build
-    artifact for a build that runs daily and scrapes the relevant statistics.
-
-    Expects GitHub PAT with proper permissions to be available as an environment variable under
-    'GITHUB_PAT'.
-
-    :param str date: The date we want the data for, in YYYY-mm-dd format, which will usually be
-                     today. Added as a parameter for caching purposes.
-
-    :raises ValueError: Raises a ValueError if an artifact with today's timestamp is not found.
-    """
-
-    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/artifacts"
-    payload = {}
-    headers = {"Authorization": f"Bearer {os.environ['GITHUB_PAT']}"}
-    output_filename = "data.zip"
-
-    # Returns a list of every available artifact for the repo
-    response = requests.request("GET", url, headers=headers, data=payload, timeout=10)
-    response_body = json.loads(response.text)
-
-    for artifact in response_body["artifacts"]:
-        if artifact["name"] == "dashboard-fa-data":
-            print(artifact["created_at"])
-            artifact_creation_date = artifact["created_at"].split("T")[0]
-            if today == artifact_creation_date:
-                download_url = artifact["archive_download_url"]
-                break
-                # Breaks when we find an artifact with the correct name and today's date
-    else:
-        # Raise an error if no such artifact as found
-        raise ValueError(f"Data for {today} not found, exiting....")
-
-    print(f"Found artifact at {download_url}")
-    print("Downloading...")
-
-    # Downloads the artifact as a zip file...
-    dl_response = requests.request(
-        "GET", download_url, headers=headers, data=payload, timeout=20
-    )
-    with open(output_filename, "wb") as fo:
-        fo.write(dl_response.content)
-
-    print("Download complete")
-
-    # ... and unzips
-    with zipfile.ZipFile(output_filename, "r") as zip_ref:
-        zip_ref.extractall("data")
-
-    print(os.listdir("data"))
-
-    print(f"Data loaded for {artifact_creation_date}")
-
-
-########################################################################################
-## Main Script #########################################################################
-########################################################################################
-
 # Get data for today's date.
-today = datetime.today()
-# If checking before 7am UTC, use yesterday's data instead, since data hasn't been updated yet
-if today.hour <= 7:
-    today -= timedelta(days=1)
-load_data(today.strftime("%Y-%m-%d"))
+today = shared.get_today_date()
+shared.load_data(today.strftime("%Y-%m-%d"))
 
 
 @st.cache_data
@@ -280,6 +214,7 @@ with st.expander("League-wide Performance", expanded=False):
 
 
 # Add the position selector to left column...
+
 chosen_position = st.selectbox(
     label="Position:",
     options=ALL_POSITIONS,
