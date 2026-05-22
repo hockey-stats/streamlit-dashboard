@@ -8,10 +8,22 @@ import streamlit as st
 import polars as pl
 import pandas as pd
 import get_matchup_data
-import get_league_weekly_stats
+import get_todays_probables
 import altair as alt
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 import shared
+from unidecode import unidecode
+
+
+def normalize_name(name: str) -> str:
+    if not name or name == "TBD":
+        return name
+    # Remove accents, convert to lowercase, remove common suffixes
+    name = unidecode(name).lower()
+    for suffix in [" jr.", " sr.", " iii", " ii", " iv"]:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+    return name.strip()
 
 
 ## Constants #########################################################################
@@ -35,17 +47,25 @@ st.set_page_config(layout="wide")
 today = shared.get_today_date()
 shared.load_data(today.strftime("%Y-%m-%d"))
 
+# Fetch today's probable pitchers for highlighting
+probables_df = get_todays_probables.get_probables(today.strftime("%Y-%m-%d"))
+if not probables_df.is_empty():
+    probables_names = set(
+        probables_df["Away Pitcher"]
+        .map_elements(normalize_name, return_dtype=pl.String)
+        .to_list()
+        + probables_df["Home Pitcher"]
+        .map_elements(normalize_name, return_dtype=pl.String)
+        .to_list()
+    )
+else:
+    probables_names = set()
+
 
 @st.cache_data
 def load_matchup_data() -> pl.DataFrame:
     """Wrapper to fetch and cache matchup data."""
     return get_matchup_data.main()
-
-
-@st.cache_data
-def load_league_weekly_stats() -> pl.DataFrame:
-    """Wrapper to fetch and cache league weekly stats."""
-    return get_league_weekly_stats.run()
 
 
 def style_matchup(df: pd.DataFrame) -> Any:
@@ -87,130 +107,9 @@ st.markdown("### This Week's Matchup")
 matchup_df = load_matchup_data()
 if not matchup_df.is_empty():
     styled_matchup = style_matchup(matchup_df.to_pandas())
-    st.dataframe(styled_matchup, hide_index=True, use_container_width=True)
+    st.dataframe(styled_matchup, hide_index=True, width="stretch")
 else:
     st.write("Matchup data not found.")
-
-# Fetch and display league weekly stats
-st.markdown("### League Weekly Stats")
-with st.expander("League-wide Performance", expanded=False):
-    league_stats_df = load_league_weekly_stats()
-    if not league_stats_df.is_empty():
-        # Ensure latest_week is an integer
-        latest_week = int(league_stats_df.select(pl.col("week").max()).item())
-
-        timeframe = st.radio(
-            "Select Timeframe:",
-            options=["Last 2 Weeks", "Full Season"],
-            horizontal=True,
-            index=0,
-        )
-
-        if timeframe == "Last 2 Weeks":
-            st.write(f"**Weeks {max(1, latest_week - 1)} - {latest_week} Summary**")
-        else:
-            st.write(f"**Season Total Summary (Weeks 1 - {latest_week})**")
-
-        # Use the aggregation logic from the data script
-        agg_df = get_league_weekly_stats.get_aggregated_stats(
-            league_stats_df, timeframe
-        )
-
-        # Ensure all numeric columns are Float64 for concat compatibility
-        numeric_cols = [
-            "R",
-            "HR",
-            "RBI",
-            "SB",
-            "AVG",
-            "K",
-            "ERA",
-            "WHIP",
-            "QS",
-            "SV",
-            "IP",
-        ]
-        agg_df = agg_df.with_columns([pl.col(c).cast(pl.Float64) for c in numeric_cols])
-
-        # Calculate Average Column for the selected timeframe
-        avg_row = agg_df.select(
-            [
-                pl.lit("League Average").alias("team"),
-                *[pl.col(c).mean().alias(c) for c in numeric_cols],
-            ]
-        )
-
-        # Calculate Average Column for the selected timeframe
-        numeric_cols = [
-            "R",
-            "HR",
-            "RBI",
-            "SB",
-            "AVG",
-            "K",
-            "ERA",
-            "WHIP",
-            "QS",
-            "SV",
-            "IP",
-        ]
-        avg_row = agg_df.select(
-            [
-                pl.lit("League Average").alias("team"),
-                *[pl.col(c).mean().alias(c) for c in numeric_cols],
-            ]
-        )
-
-        # Reorder teams: Average first, then My team, then the rest
-        my_team_name = "Ghostface millers"
-        all_teams = agg_df["team"].to_list()
-        my_team = next(
-            (t for t in all_teams if t.lower() == my_team_name.lower()), my_team_name
-        )
-        other_teams = [t for t in all_teams if t != my_team]
-
-        # Combine into ordered dataframe
-        ordered_df = pl.concat(
-            [
-                avg_row,
-                agg_df.filter(pl.col("team") == my_team),
-                agg_df.filter(pl.col("team").is_in(other_teams)),
-            ],
-            how="vertical",
-        )
-
-        # Convert to pandas and transpose: index will be categories, columns will be teams
-        pd_stats = (
-            ordered_df.select(["team"] + numeric_cols).to_pandas().set_index("team").T
-        )
-
-        # Convert to object type to avoid pandas dtype warnings when setting string values
-        pd_stats = pd_stats.astype(object)
-
-        # Round the values in the dataframe itself for display
-        for category in pd_stats.index:
-            for team in pd_stats.columns:
-                val = pd_stats.loc[category, team]
-                if pd.isna(val) or val == "-":
-                    pd_stats.loc[category, team] = "-"
-                    continue
-
-                if category == "AVG":
-                    pd_stats.loc[category, team] = f"{float(val):.3f}"
-                elif category in {"ERA", "WHIP"}:
-                    pd_stats.loc[category, team] = f"{float(val):.2f}"
-                elif category == "IP":
-                    pd_stats.loc[category, team] = f"{float(val):.1f}"
-                else:  # Counting stats
-                    if team == "League Average":
-                        pd_stats.loc[category, team] = f"{float(val):.1f}"
-                    else:
-                        pd_stats.loc[category, team] = str(int(float(val)))
-
-        st.table(pd_stats)
-
-    else:
-        st.write("League stats data not found.")
 
 
 # Add the position selector to left column...
@@ -315,6 +214,18 @@ else:
         ]
     ]
 
+# Add pitching_today column for pitchers
+if chosen_position in PITCHING_POSITIONS:
+    table_df = table_df.with_columns(
+        pl.col("Name")
+        .map_elements(
+            lambda x: normalize_name(x) in probables_names, return_dtype=pl.Boolean
+        )
+        .alias("pitching_today")
+    )
+else:
+    table_df = table_df.with_columns(pl.lit(False).alias("pitching_today"))
+
 # Formats name, e.g. Bo Bichette -> B. Bichette
 table_df = table_df.with_columns(
     pl.col("Name").map_elements(
@@ -351,7 +262,7 @@ columnDefs = [
         "sortingOrder": ["desc", "asc", None],
     }
     for col in list(table_df.columns)
-    if col != "on_team"
+    if col not in ["on_team", "pitching_today"]
 ]
 
 # Format the decimal numbers for certain metrics
@@ -377,6 +288,9 @@ columnDefs[1]["width"] = 10
 cellStyle = JsCode(
     r"""
 function(cellClassParams) {
+		if (cellClassParams.data.pitching_today) {
+				return {'background-color': '#1b5e20', 'color': 'white'}
+		}
 		if (cellClassParams.data.on_team) {
 				return {'background-color': '#a6761d'}
 		}

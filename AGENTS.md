@@ -89,3 +89,11 @@ GitHub Actions workflow (`.github/workflows/update_dashboard_data.yml`):
 - Runs daily at 07:00 UTC and on pushes to `main`
 - Generates CSV artifacts consumed by the dashboard
 - Requires `YAHOO_OAUTH_DECRYPT_KEY` secret for GPG decryption
+
+## Git Guidelines
+- **NEVER** perform git commits or pushes proactively.
+- Only use git tools when explicitly requested by the user.
+
+## Maintenance and Preservation
+- **NEVER** overwrite manual changes. Before modifying a file, always read its current state to ensure your changes integrate safely.
+- Prefer targeted `edit` calls over full-file `write` calls to minimize the risk of deleting manual updates or custom logic.
