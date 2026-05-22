@@ -505,12 +505,18 @@ def main() -> None:
     session = create_session()
     game = yfa.Game(session, "mlb")
 
+    league = None
     for i in game.league_ids():
-        league = yfa.League(session, i)
-        league_info = league.__dict__["settings_cache"]
+        l = yfa.League(session, i)
+        league_info = l.__dict__["settings_cache"]
         if league_info["name"] == LEAGUE_NAME and int(league_info["season"]) == SEASON:
+            league = l
             print("Found correct league....")
             break
+
+    if league is None:
+        print(f"League '{LEAGUE_NAME}' for season {SEASON} not found.")
+        return
 
     # Get every player that's already on a team
     taken = league.taken_players()
@@ -585,6 +591,10 @@ def main() -> None:
     # Save output
     pitcher_df.write_csv("pitcher_data.csv")
     batter_df.write_csv("batter_data.csv")
+
+    # Save full pitcher stats for the probables page
+    full_pitcher_stats = get_detailed_pitcher_stats(2026)
+    full_pitcher_stats.write_csv("all_pitcher_stats.csv")
 
     # Get today's probables
     probables_df = get_probables()

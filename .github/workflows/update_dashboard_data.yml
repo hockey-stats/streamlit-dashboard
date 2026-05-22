@@ -37,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.DATA_ARTIFACT_NAME }}
-          path: ./*csv
+          path: ./*.csv
           retention-days: 2
           overwrite: true
     ###
