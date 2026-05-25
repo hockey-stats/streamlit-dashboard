@@ -113,28 +113,36 @@ def get_detailed_pitcher_stats(year: int) -> pl.DataFrame:
         pyb.statcast_pitcher_expected_stats(year=year, minPA=1)
     )
     xdf = xdf[["player_id", "xera"]]
-    xdf = xdf.cast({'player_id': pl.String})
+    xdf = xdf.cast({"player_id": pl.String})
 
     df = df.rename({"mlbID": "player_id"})
 
     print(df)
 
     df = df.with_columns(
-            (pl.col("SO") / pl.col("BF") * 100).alias("K%"),
-            (pl.col("BB") / pl.col("BF") * 100).alias("BB%"),
+        (pl.col("SO") / pl.col("BF") * 100).alias("K%"),
+        (pl.col("BB") / pl.col("BF") * 100).alias("BB%"),
     )
 
-    df = df.with_columns((pl.col('K%') - pl.col('BB%')).alias("K-BB%"))
+    df = df.with_columns((pl.col("K%") - pl.col("BB%")).alias("K-BB%"))
 
     final_df: pl.DataFrame = df.join(xdf, how="inner", on="player_id")
 
     final_df = final_df.with_columns(
         pl.col("xera").round_sig_figs(3).alias("xERA"),
         pl.col("K-BB%").round_sig_figs(3),
-        pl.struct(pl.all()).map_elements(get_fg_abbreviation, return_dtype=pl.String).alias('Team'),
-        pl.col('Name').map_elements(
-            lambda x: x.encode('latin-1').decode('unicode_escape').encode('latin-1').decode('utf-8'), 
-            return_dtype=pl.String).alias('Name')
+        pl.struct(pl.all())
+        .map_elements(get_fg_abbreviation, return_dtype=pl.String)
+        .alias("Team"),
+        pl.col("Name")
+        .map_elements(
+            lambda x: x.encode("latin-1")
+            .decode("unicode_escape")
+            .encode("latin-1")
+            .decode("utf-8"),
+            return_dtype=pl.String,
+        )
+        .alias("Name"),
     )
 
     final_df = final_df.rename(
@@ -154,6 +162,7 @@ def get_detailed_pitcher_stats(year: int) -> pl.DataFrame:
             "SO",
             "BB",
             "SV",
+            "GS",
             "K-BB%",
             "xERA",
         ]
@@ -166,4 +175,3 @@ if __name__ == "__main__":
     results_df: pl.DataFrame = get_detailed_pitcher_stats(2026)
     with pl.Config(tbl_cols=20, tbl_rows=50):
         print(results_df.sort(by=pl.col("K-BB%")))
-

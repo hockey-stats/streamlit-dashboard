@@ -194,7 +194,7 @@ def collect_pitcher_stats(
     y_df = pl.DataFrame(p_dict)
 
     # Now get advanced stats
-    p_df = get_detailed_pitcher_stats(2026)[["Name", "Team", "xERA", "K-BB%"]]
+    p_df = get_detailed_pitcher_stats(2026)[["Name", "Team", "xERA", "K-BB%", "GS"]]
     p_df = p_df.rename({"Team": "team", "Name": "name"})
 
     ## Update teams for traded players
@@ -217,6 +217,19 @@ def collect_pitcher_stats(
     df = y_df.join(p_df, how="inner", on=["last_name", "team"])
     df = df.drop("name_right")
     df = df.drop("last_name")
+
+    # Exclude RP designation for pitchers with any Games Started
+    df = df.with_columns(
+        pl.when(pl.col("GS") > 0)
+        .then(
+            pl.col("positions")
+            .str.split(",")
+            .list.eval(pl.element().filter(pl.element() != "RP"))
+            .list.join(",")
+        )
+        .otherwise(pl.col("positions"))
+        .alias("positions")
+    )
 
     return df
 
