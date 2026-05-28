@@ -55,7 +55,7 @@ def get_team_name(lev: str, tm: str) -> str:
     """
     # Handle multi-team strings like 'Chicago,Houston' by taking the final team
     current_city: str = tm.split(',')[-1].strip()
-    lev: str = lev.split(',')[-1].strip()
+    current_lev: str = lev.split(',')[-1].strip()
 
     mapping: Dict[Tuple[str, str], str] = {
         ("Maj-AL", "Chicago"): "White Sox",
@@ -90,7 +90,23 @@ def get_team_name(lev: str, tm: str) -> str:
         ("Maj-NL", "St. Louis"): "Cardinals",
     }
 
-    return mapping.get((lev, current_city), current_city)
+    try:
+        team_name = mapping[(current_lev, current_city)]
+
+    except KeyError as e:
+        # In cases where a player was traded between leagues, the index of their new team might not
+        # match the index of their new league. So we check if the mapping entry exists in the other
+        # league as well, and return that if found.
+        print(f"lev: {lev}, tm: {tm}")
+        if current_lev == 'Maj-NL':
+            current_lev = 'Maj-AL'
+        else:
+            current_lev = 'Maj-NL'
+        team_name = mapping.get((current_lev, current_city), "")
+        if team_name == "":
+            raise e
+
+    return team_name
 
 
 def get_fg_abbreviation(row: Dict[str, Any]) -> str:
