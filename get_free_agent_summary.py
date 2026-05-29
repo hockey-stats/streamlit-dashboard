@@ -5,11 +5,11 @@ from itertools import combinations
 import polars as pl
 import pybaseball as pb
 import yahoo_fantasy_api as yfa
+from mlb_stats_util import get_detailed_batter_stats
+from mlb_stats_util import get_detailed_pitcher_stats
 from yahoo_oauth import OAuth2
 from unidecode import unidecode
 
-from get_detailed_batter_stats import get_detailed_batter_stats
-from get_detailed_pitcher_stats import get_detailed_pitcher_stats
 from get_todays_probables import get_probables
 
 # from util.fix_traded_mlb_players import fix_teams_for_traded_batters, fix_teams_for_traded_pitchers
