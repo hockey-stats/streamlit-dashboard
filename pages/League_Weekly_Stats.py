@@ -86,27 +86,57 @@ if not league_stats_df.is_empty():
         ordered_df.select(["team"] + numeric_cols).to_pandas().set_index("team").T
     )
 
-    # Convert to object type to avoid pandas dtype warnings when setting string values
-    pd_stats = pd_stats.astype(object)
+    # --- ORIGINAL TABLE CODE (Commented for reference) ---
+    # # Convert to object type to avoid pandas dtype warnings when setting string values
+    # pd_stats = pd_stats.astype(object)
+    #
+    # # Round the values in the dataframe itself for display
+    # for category in pd_stats.index:
+    #     for team in pd_stats.columns:
+    #         val = pd_stats.loc[category, team]
+    #         if pd.isna(val) or val == "-":
+    #             pd_stats.loc[category, team] = "-"
+    #             continue
+    #
+    #         if category == "AVG":
+    #             pd_stats.loc[category, team] = f"{float(val):.3f}"
+    #         elif category in {"ERA", "WHIP"}:
+    #             pd_stats.loc[category, team] = f"{float(val):.2f}"
+    #         elif category == "IP":
+    #             pd_stats.loc[category, team] = f"{float(val):.1f}"
+    #         else:  # Counting stats
+    #             pd_stats.loc[category, team] = f"{float(val):.1f}"
+    #
+    # st.table(pd_stats)
+    # ---------------------------------------------------
 
-    # Round the values in the dataframe itself for display
-    for category in pd_stats.index:
-        for team in pd_stats.columns:
-            val = pd_stats.loc[category, team]
-            if pd.isna(val) or val == "-":
-                pd_stats.loc[category, team] = "-"
-                continue
+    # Define categories by improvement direction
+    lower_is_better = ["ERA", "WHIP"]
+    higher_is_better = [c for c in numeric_cols if c not in lower_is_better]
 
-            if category == "AVG":
-                pd_stats.loc[category, team] = f"{float(val):.3f}"
-            elif category in {"ERA", "WHIP"}:
-                pd_stats.loc[category, team] = f"{float(val):.2f}"
-            elif category == "IP":
-                pd_stats.loc[category, team] = f"{float(val):.1f}"
-            else:  # Counting stats
-                pd_stats.loc[category, team] = f"{float(val):.1f}"
+    # Style the dataframe
+    # We exclude 'League Average' from the gradient calculation to rank only members
+    rank_cols = [c for c in pd_stats.columns if c != "League Average"]
 
-    st.table(pd_stats)
+    # Ensure all data in pd_stats is numeric for the styler
+    pd_stats = pd_stats.apply(pd.to_numeric, errors="coerce")
+
+    styler = pd_stats.style
+
+    # Apply background gradients
+    styler = styler.background_gradient(
+        cmap="RdBu", subset=pd.IndexSlice[lower_is_better, rank_cols], axis=1
+    )
+    styler = styler.background_gradient(
+        cmap="RdBu_r", subset=pd.IndexSlice[higher_is_better, rank_cols], axis=1
+    )
+
+    # Apply formatting: Default to 2 decimal places, then override AVG with 3
+    styler = styler.format(precision=2, na_rep="-")
+    styler = styler.format(formatter="{:.3f}", subset=pd.IndexSlice[["AVG"], :])
+
+    # Use st.table as it is more reliable for rendering pandas Styler formatting
+    st.table(styler)
 
 else:
     st.write("League stats data not found.")
