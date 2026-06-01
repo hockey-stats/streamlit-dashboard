@@ -62,7 +62,7 @@ def get_league_weekly_stats(league: yfa.League) -> pl.DataFrame:
     current_week = league.current_week()
     all_stats = []
 
-    for week in range(1, current_week + 1):
+    for week in range(1, current_week):
         print(f"Fetching stats for week {week}...")
         matchups_data = league.matchups(week=week)
         try:
@@ -81,6 +81,8 @@ def get_league_weekly_stats(league: yfa.League) -> pl.DataFrame:
 
     if not all_stats:
         return pl.DataFrame()
+
+    print(all_stats)
 
     df = pl.DataFrame(all_stats)
 
@@ -118,21 +120,21 @@ def get_aggregated_stats(df: pl.DataFrame, timeframe: str) -> pl.DataFrame:
     # Aggregate stats by team
     agg_df = df.group_by("team").agg(
         [
-            pl.col("R").sum().cast(pl.Float64),
-            pl.col("HR").sum().cast(pl.Float64),
-            pl.col("RBI").sum().cast(pl.Float64),
-            pl.col("SB").sum().cast(pl.Float64),
+            pl.col("R").mean().cast(pl.Float64),
+            pl.col("HR").mean().cast(pl.Float64),
+            pl.col("RBI").mean().cast(pl.Float64),
+            pl.col("SB").mean().cast(pl.Float64),
             (pl.col("_H").sum() / pl.col("_AB").sum().cast(pl.Float64)).alias("AVG"),
-            pl.col("K").sum().cast(pl.Float64),
+            pl.col("K").mean().cast(pl.Float64),
             ((pl.col("ERA") * pl.col("_IP_dec")).sum() / pl.col("_IP_dec").sum()).alias(
                 "ERA"
             ),
             (
                 (pl.col("WHIP") * pl.col("_IP_dec")).sum() / pl.col("_IP_dec").sum()
             ).alias("WHIP"),
-            pl.col("QS").sum().cast(pl.Float64),
-            pl.col("SV").sum().cast(pl.Float64),
-            pl.col("_IP_dec").sum().alias("_total_ip_dec"),
+            pl.col("QS").mean().cast(pl.Float64),
+            pl.col("SV").mean().cast(pl.Float64),
+            pl.col("_IP_dec").mean().alias("_total_ip_dec"),
         ]
     )
 

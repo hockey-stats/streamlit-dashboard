@@ -32,9 +32,9 @@ if not league_stats_df.is_empty():
     )
 
     if timeframe == "Last 2 Weeks":
-        st.write(f"**Weeks {max(1, latest_week - 1)} - {latest_week} Summary**")
+        st.write(f"**Weeks {max(1, latest_week - 1)} - {latest_week} Average Summary**")
     else:
-        st.write(f"**Season Total Summary (Weeks 1 - {latest_week})**")
+        st.write(f"**Season Average Summary (Weeks 1 - {latest_week})**")
 
     # Use the aggregation logic from the data script
     agg_df = get_league_weekly_stats.get_aggregated_stats(league_stats_df, timeframe)
@@ -104,10 +104,7 @@ if not league_stats_df.is_empty():
             elif category == "IP":
                 pd_stats.loc[category, team] = f"{float(val):.1f}"
             else:  # Counting stats
-                if team == "League Average":
-                    pd_stats.loc[category, team] = f"{float(val):.1f}"
-                else:
-                    pd_stats.loc[category, team] = str(int(float(val)))
+                pd_stats.loc[category, team] = f"{float(val):.1f}"
 
     st.table(pd_stats)
 
