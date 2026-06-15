@@ -103,6 +103,29 @@ if not probables_df.is_empty():
             .alias("Home Pitcher"),
         )
 
+        # Get free agent pitchers for highlighting
+        fa_pitchers = set()
+        if os.path.exists("data/pitcher_data.csv"):
+            try:
+                fa_pitchers = set(
+                    pl.read_csv("data/pitcher_data.csv")
+                    .filter(pl.col("on_team") == False)
+                    .select(
+                        pl.col("Name").map_elements(
+                            normalize_name, return_dtype=pl.String
+                        )
+                    )
+                    .to_series()
+                    .to_list()
+                )
+            except Exception:
+                pass
+
+        probables_df = probables_df.with_columns(
+            pl.col("norm_away").is_in(fa_pitchers).alias("Away_Is_FA"),
+            pl.col("norm_home").is_in(fa_pitchers).alias("Home_Is_FA"),
+        )
+
         # Final column selection and formatting
         display_df = probables_df.select(
             [
@@ -116,31 +139,33 @@ if not probables_df.is_empty():
                 pl.col("Home ERA").alias("ERA (H)"),
                 pl.col("Home xERA").alias("xERA (H)"),
                 pl.col("Home K-BB%").alias("K-BB% (H)"),
+                pl.col("Away_Is_FA"),
+                pl.col("Home_Is_FA"),
             ]
         ).fill_null("-")
 
-        # Round the values if they are float strings
-        def format_val(val):
+        pd_display = display_df.to_pandas()
+
+        def format_metric(val, is_percent=False):
             try:
                 if val == "-":
                     return val
                 f_val = float(val)
-                if f_val > 10:  # Likely K-BB%
+                if is_percent:
                     return f"{f_val:.1f}%"
                 return f"{f_val:.2f}"
             except:
                 return val
 
-        pd_display = display_df.to_pandas()
-        for col in [
-            "ERA (A)",
-            "xERA (A)",
-            "K-BB% (A)",
-            "ERA (H)",
-            "xERA (H)",
-            "K-BB% (H)",
-        ]:
-            pd_display[col] = pd_display[col].apply(format_val)
+        for col in ["ERA (A)", "xERA (A)", "ERA (H)", "xERA (H)"]:
+            pd_display[col] = pd_display[col].apply(
+                lambda x: format_metric(x, is_percent=False)
+            )
+
+        for col in ["K-BB% (A)", "K-BB% (H)"]:
+            pd_display[col] = pd_display[col].apply(
+                lambda x: format_metric(x, is_percent=True)
+            )
 
         # Get teams with hitters on our team for highlighting
         batter_data_path = "data/batter_data.csv"
@@ -206,11 +231,19 @@ if not probables_df.is_empty():
         gb.configure_column("Away_My_Hitters", hide=True)
         gb.configure_column("Home_My_Hitters", hide=True)
         gb.configure_column("My_Hitters_Tooltip", hide=True)
+        gb.configure_column("Away_Is_FA", hide=True)
+        gb.configure_column("Home_Is_FA", hide=True)
 
-        # Style rule for rows with hitters
+        # Style rule for rows with hitters or free agent pitchers
         cellStyle = JsCode(
             r"""
             function(params) {
+                if (params.colDef.field === 'Pitcher (A)' && (params.data.Away_Is_FA === true || params.data.Away_Is_FA === 'true')) {
+                    return {'background-color': '#1b5e20', 'color': 'white'};
+                }
+                if (params.colDef.field === 'Pitcher (H)' && (params.data.Home_Is_FA === true || params.data.Home_Is_FA === 'true')) {
+                    return {'background-color': '#1b5e20', 'color': 'white'};
+                }
                 if (params.data.My_Hitters_Tooltip !== "") {
                     return {'background-color': '#a6761d', 'color': 'white'};
                 }
