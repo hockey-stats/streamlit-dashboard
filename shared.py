@@ -47,6 +47,67 @@ def load_data(today: str) -> None:
             zip_ref.extractall("data")
 
 
+import time
+
+
+def trigger_workflow() -> bool:
+    """
+    Triggers the GitHub Action workflow.
+    """
+    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_dashboard_data.yml/dispatches"
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('GITHUB_PAT')}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    data = {"ref": "main"}
+
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        return response.status_code == 204
+    except Exception as e:
+        print(f"Error triggering workflow: {e}")
+        return False
+
+
+def get_latest_workflow_run():
+    """
+    Retrieves the latest workflow run for update_dashboard_data.yml
+    """
+    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_dashboard_data.yml/runs"
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('GITHUB_PAT')}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            runs = response.json().get("workflow_runs", [])
+            if runs:
+                return runs[0]
+        return None
+    except Exception:
+        return None
+
+
+def get_run_status(run_id: int):
+    """
+    Checks the status of a specific workflow run.
+    """
+    url = f"https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/runs/{run_id}"
+    headers = {
+        "Authorization": f"Bearer {os.environ.get('GITHUB_PAT')}",
+        "Accept": "application/vnd.github.v3+json",
+    }
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            return data.get("status"), data.get("conclusion")
+        return None, None
+    except Exception:
+        return None, None
+
+
 def get_today_date():
     today = datetime.today()
     # If checking before 7am UTC, use yesterday's data instead
