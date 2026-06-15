@@ -197,26 +197,28 @@ def collect_pitcher_stats(
     p_df = get_detailed_pitcher_stats(2026)[["Name", "Team", "xERA", "K-BB%", "GS"]]
     p_df = p_df.rename({"Team": "team", "Name": "name"})
 
-    ## Update teams for traded players
-    ##p_df = fix_teams_for_traded_pitchers(p_df)
+    # Normalize name in p_df to match Yahoo's unidecode
+    p_df = p_df.with_columns(
+        pl.col("name").map_elements(unidecode, return_dtype=pl.String)
+    )
 
-    ## Add a last_name column to both dataframes for the join (different sources might have
-    ## different versions of first names)
+    ## Add a last_name and first_initial column to both dataframes for the join
     p_df = p_df.with_columns(
         (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias(
             "last_name"
-        )
+        ),
+        pl.col("name").str.slice(0, 1).alias("first_initial"),
     )
     y_df = y_df.with_columns(
         (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias(
             "last_name"
-        )
+        ),
+        pl.col("name").str.slice(0, 1).alias("first_initial"),
     )
 
     ## Join the two DFs and return
-    df = y_df.join(p_df, how="inner", on=["last_name", "team"])
-    df = df.drop("name_right")
-    df = df.drop("last_name")
+    df = y_df.join(p_df, how="inner", on=["first_initial", "last_name", "team"])
+    df = df.drop(["name_right", "last_name", "first_initial"])
 
     # Exclude RP designation for pitchers with any Games Started
     df = df.with_columns(
@@ -306,28 +308,30 @@ def collect_batter_stats(player_ids: list, league: yfa.League) -> pl.DataFrame:
     p_df = get_detailed_batter_stats(2026)[["Name", "Team", "wRC+", "xwOBA"]]
     p_df = p_df.rename({"Team": "team", "Name": "name"})
 
-    ## Update teams for traded players
-    ##p_df = fix_teams_for_traded_batters(p_df)
+    # Normalize name in p_df to match Yahoo's unidecode
+    p_df = p_df.with_columns(
+        pl.col("name").map_elements(unidecode, return_dtype=pl.String)
+    )
 
     p_df = p_df.with_columns(pl.col("xwOBA").cast(pl.Decimal(10, 3)))
 
-    ## Add a last_name column to both dataframes for the join (different sources might have
-    ## different versions of first names)
+    ## Add a last_name and first_initial column to both dataframes for the join
     p_df = p_df.with_columns(
         (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias(
             "last_name"
-        )
+        ),
+        pl.col("name").str.slice(0, 1).alias("first_initial"),
     )
     y_df = y_df.with_columns(
         (pl.col("name").str.split(" ").list.slice(1, None).list.join(" ")).alias(
             "last_name"
-        )
+        ),
+        pl.col("name").str.slice(0, 1).alias("first_initial"),
     )
 
     ## Join the two DFs and return
-    df = y_df.join(p_df, how="inner", on=["last_name", "team"])
-    df = df.drop("name_right")
-    df = df.drop("last_name")
+    df = y_df.join(p_df, how="inner", on=["first_initial", "last_name", "team"])
+    df = df.drop(["name_right", "last_name", "first_initial"])
 
     return df
 
