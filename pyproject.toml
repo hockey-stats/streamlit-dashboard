@@ -5,7 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "mlb-stats-util>=0.1.1",
+    "mlb-stats-util>=0.2.0",
     "polars>=1.39.3",
     "pybaseball>=2.2.7",
     "requests>=2.32.4",

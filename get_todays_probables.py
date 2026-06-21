@@ -28,7 +28,7 @@ def get_probables(date_str: Optional[str] = None) -> pl.DataFrame:
     if not date_str:
         date_str = datetime.now().strftime("%Y-%m-%d")
 
-    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date_str}&hydrate=probablePitcher,team"
+    url = f"https://statsapi.mlb.com/api/v1/schedule?sportId=1&date={date_str}&hydrate=probablePitcher,person,team"
     try:
         response = requests.get(url, timeout=10)
         response.raise_for_status()
@@ -58,11 +58,15 @@ def get_probables(date_str: Optional[str] = None) -> pl.DataFrame:
 
             away_team = away_team_data.get("abbreviation", away_team_data.get("name"))
             away_team = TEAM_MAPPING.get(away_team, away_team)
-            away_pitcher = away.get("probablePitcher", {}).get("fullName", "TBD")
+            away_pitcher_data = away.get("probablePitcher", {})
+            away_pitcher = away_pitcher_data.get("fullName", "TBD")
+            away_hand = away_pitcher_data.get("pitchHand", {}).get("code", "")
 
             home_team = home_team_data.get("abbreviation", home_team_data.get("name"))
             home_team = TEAM_MAPPING.get(home_team, home_team)
-            home_pitcher = home.get("probablePitcher", {}).get("fullName", "TBD")
+            home_pitcher_data = home.get("probablePitcher", {})
+            home_pitcher = home_pitcher_data.get("fullName", "TBD")
+            home_hand = home_pitcher_data.get("pitchHand", {}).get("code", "")
 
             # Add two rows per game for easier joining later if needed,
             # or keep it in one row for a "matchup" view.
@@ -72,8 +76,10 @@ def get_probables(date_str: Optional[str] = None) -> pl.DataFrame:
                     "Time": game_time,
                     "Away": away_team,
                     "Away Pitcher": away_pitcher,
+                    "Away Hand": away_hand,
                     "Home": home_team,
                     "Home Pitcher": home_pitcher,
+                    "Home Hand": home_hand,
                 }
             )
 
