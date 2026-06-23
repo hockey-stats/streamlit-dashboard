@@ -526,6 +526,8 @@ if not probables_df.is_empty():
         for c in [
             "Away_Avg_R",
             "Away_R_Rank",
+            "Away_Runs_L10",
+            "Away_Runs_L10_Rank",
             "Away_wOBA_L",
             "Away_wOBA_L_Rank",
             "Away_wOBA_R",
@@ -534,6 +536,8 @@ if not probables_df.is_empty():
             "Away_Park_Rank",
             "Home_Avg_R",
             "Home_R_Rank",
+            "Home_Runs_L10",
+            "Home_Runs_L10_Rank",
             "Home_wOBA_L",
             "Home_wOBA_L_Rank",
             "Home_wOBA_R",
