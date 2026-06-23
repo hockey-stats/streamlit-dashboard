@@ -163,6 +163,10 @@ if not probables_df.is_empty():
                     .rank(descending=True, method="min")
                     .cast(pl.Int32)
                     .alias("Park_Rank"),
+                    pl.col("Runs_L10")
+                    .rank(descending=True, method="min")
+                    .cast(pl.Int32)
+                    .alias("Runs_L10_Rank"),
                 ]
             )
 
@@ -178,6 +182,8 @@ if not probables_df.is_empty():
                     pl.col("wOBA_R_Rank").alias("Away_wOBA_R_Rank"),
                     pl.col("Park_Factor").alias("Away_Park"),
                     pl.col("Park_Rank").alias("Away_Park_Rank"),
+                    pl.col("Runs_L10").alias("Away_Runs_L10"),
+                    pl.col("Runs_L10_Rank").alias("Away_Runs_L10_Rank"),
                 ]
             )
             # Create a temporary column for joining
@@ -200,6 +206,8 @@ if not probables_df.is_empty():
                     pl.col("wOBA_R_Rank").alias("Home_wOBA_R_Rank"),
                     pl.col("Park_Factor").alias("Home_Park"),
                     pl.col("Park_Rank").alias("Home_Park_Rank"),
+                    pl.col("Runs_L10").alias("Home_Runs_L10"),
+                    pl.col("Runs_L10_Rank").alias("Home_Runs_L10_Rank"),
                 ]
             )
             probables_df = probables_df.with_columns(
@@ -216,6 +224,8 @@ if not probables_df.is_empty():
             probables_df = probables_df.with_columns(
                 pl.lit(loading_val).alias("Away_Avg_R"),
                 pl.lit(loading_val).alias("Away_R_Rank"),
+                pl.lit(loading_val).alias("Away_Runs_L10"),
+                pl.lit(loading_val).alias("Away_Runs_L10_Rank"),
                 pl.lit(loading_val).alias("Away_wOBA_L"),
                 pl.lit(loading_val).alias("Away_wOBA_L_Rank"),
                 pl.lit(loading_val).alias("Away_wOBA_R"),
@@ -224,6 +234,8 @@ if not probables_df.is_empty():
                 pl.lit(loading_val).alias("Away_Park_Rank"),
                 pl.lit(loading_val).alias("Home_Avg_R"),
                 pl.lit(loading_val).alias("Home_R_Rank"),
+                pl.lit(loading_val).alias("Home_Runs_L10"),
+                pl.lit(loading_val).alias("Home_Runs_L10_Rank"),
                 pl.lit(loading_val).alias("Home_wOBA_L"),
                 pl.lit(loading_val).alias("Home_wOBA_L_Rank"),
                 pl.lit(loading_val).alias("Home_wOBA_R"),
@@ -298,6 +310,8 @@ if not probables_df.is_empty():
         for c in [
             "Away_Avg_R",
             "Away_R_Rank",
+            "Away_Runs_L10",
+            "Away_Runs_L10_Rank",
             "Away_wOBA_L",
             "Away_wOBA_L_Rank",
             "Away_wOBA_R",
@@ -306,6 +320,8 @@ if not probables_df.is_empty():
             "Away_Park_Rank",
             "Home_Avg_R",
             "Home_R_Rank",
+            "Home_Runs_L10",
+            "Home_Runs_L10_Rank",
             "Home_wOBA_L",
             "Home_wOBA_L_Rank",
             "Home_wOBA_R",
@@ -407,6 +423,8 @@ if not probables_df.is_empty():
             # Add team metrics for Opponent
             avg_r = row.get(f"{opp_prefix}_Avg_R", "-")
             r_rank = row.get(f"{opp_prefix}_R_Rank", "-")
+            runs_l10 = row.get(f"{opp_prefix}_Runs_L10", "-")
+            runs_l10_rank = row.get(f"{opp_prefix}_Runs_L10_Rank", "-")
             woba_l = row.get(f"{opp_prefix}_wOBA_L", "-")
             woba_l_rank = row.get(f"{opp_prefix}_wOBA_L_Rank", "-")
             woba_r = row.get(f"{opp_prefix}_wOBA_R", "-")
@@ -423,6 +441,9 @@ if not probables_df.is_empty():
                     try:
                         tooltips.append(
                             f"{opp_abbr} Avg Runs: {float(avg_r):.2f} ({get_ordinal(r_rank)})"
+                        )
+                        tooltips.append(
+                            f"Runs (L10): {int(float(runs_l10))} ({get_ordinal(runs_l10_rank)})"
                         )
 
                         # Decide which wOBA to show based on pitcher hand
@@ -551,6 +572,8 @@ if not probables_df.is_empty():
             "Home Hand",
             "Away_Avg_R",
             "Away_R_Rank",
+            "Away_Runs_L10",
+            "Away_Runs_L10_Rank",
             "Away_wOBA_L",
             "Away_wOBA_L_Rank",
             "Away_wOBA_R",
@@ -559,6 +582,8 @@ if not probables_df.is_empty():
             "Away_Park_Rank",
             "Home_Avg_R",
             "Home_R_Rank",
+            "Home_Runs_L10",
+            "Home_Runs_L10_Rank",
             "Home_wOBA_L",
             "Home_wOBA_L_Rank",
             "Home_wOBA_R",
