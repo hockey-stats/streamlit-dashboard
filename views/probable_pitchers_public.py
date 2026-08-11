@@ -1,0 +1,366 @@
+import streamlit as st
+import polars as pl
+import pandas as pd
+import get_todays_probables
+import shared
+import os
+from unidecode import unidecode
+from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
+from mlb_stats_util.get_team_stats import get_team_stats
+from mlb_stats_util import get_detailed_pitcher_stats
+
+
+@st.cache_data(ttl=43200)
+def get_cached_team_stats(year: int):
+    return get_team_stats(year)
+
+
+@st.cache_data(ttl=43200)
+def get_cached_pitcher_stats(year: int):
+    return get_detailed_pitcher_stats(year)
+
+
+st.markdown("# Today's Probable Pitchers (Public View)")
+st.caption(
+    "Matchup analysis using only public MLB and Statcast data. 'Opp wOBA' is the opposing team's wOBA against the pitcher's handedness."
+)
+
+
+def normalize_name(name: str) -> str:
+    if not name or name == "TBD":
+        return name
+    # Remove accents, convert to lowercase, remove common suffixes
+    name = unidecode(name).lower()
+    for suffix in [" jr.", " sr.", " iii", " ii", " iv"]:
+        if name.endswith(suffix):
+            name = name[: -len(suffix)]
+    return name.strip()
+
+
+def format_short_name(name: str) -> str:
+    if not name or name == "TBD":
+        return name
+    name = name.strip()
+    parts = name.split()
+    if len(parts) > 1:
+        return f"{parts[0][0]}. {' '.join(parts[1:])}"
+    return name
+
+
+# Get today's date
+today = shared.get_today_date()
+date_str = today.strftime("%Y-%m-%d")
+
+# Get team stats for enrichment
+year = today.year
+
+# Initialize session state for team stats if not present
+if "team_stats_df" not in st.session_state:
+    st.session_state.team_stats_df = None
+
+team_stats_df = st.session_state.team_stats_df
+
+# Fetch probables from API (live)
+probables_df = get_todays_probables.get_probables(date_str)
+
+if not probables_df.is_empty():
+    # Load all pitcher stats for enrichment
+    try:
+        pitcher_stats = get_cached_pitcher_stats(year)
+    except Exception as e:
+        st.warning(f"Could not load season pitcher stats: {e}")
+        pitcher_stats = pl.DataFrame()
+
+    if not pitcher_stats.is_empty():
+        # Normalize names for joining
+        pitcher_stats = pitcher_stats.with_columns(
+            pl.col("Name")
+            .map_elements(normalize_name, return_dtype=pl.String)
+            .alias("norm_name")
+        )
+        probables_df = probables_df.with_columns(
+            pl.col("Away Pitcher")
+            .map_elements(normalize_name, return_dtype=pl.String)
+            .alias("norm_away"),
+            pl.col("Home Pitcher")
+            .map_elements(normalize_name, return_dtype=pl.String)
+            .alias("norm_home"),
+        )
+
+        # Select relevant columns for join
+        stats_subset = pitcher_stats.select(["norm_name", "ERA", "xERA", "K-BB%"])
+
+        # Join for away pitchers
+        probables_df = probables_df.join(
+            stats_subset, left_on="norm_away", right_on="norm_name", how="left"
+        ).rename({"ERA": "Away ERA", "xERA": "Away xERA", "K-BB%": "Away K-BB%"})
+
+        # Join for home pitchers
+        probables_df = probables_df.join(
+            stats_subset, left_on="norm_home", right_on="norm_name", how="left"
+        ).rename({"ERA": "Home ERA", "xERA": "Home xERA", "K-BB%": "Home K-BB%"})
+
+    # Mapping for dashboard abbreviations to Statcast ones used in get_team_stats
+    FG_TO_SC = {
+        "ARI": "ARI",
+        "ATL": "ATL",
+        "BAL": "BAL",
+        "BOS": "BOS",
+        "CHC": "CHC",
+        "CHW": "CWS",
+        "CIN": "CIN",
+        "CLE": "CLE",
+        "COL": "COL",
+        "DET": "DET",
+        "HOU": "HOU",
+        "KCR": "KC",
+        "LAA": "LAA",
+        "LAD": "LAD",
+        "MIA": "MIA",
+        "MIL": "MIL",
+        "MIN": "MIN",
+        "NYM": "NYM",
+        "NYY": "NYY",
+        "OAK": "OAK",
+        "PHI": "PHI",
+        "PIT": "PIT",
+        "SDP": "SD",
+        "SEA": "SEA",
+        "SFG": "SF",
+        "STL": "STL",
+        "TBR": "TB",
+        "TEX": "TEX",
+        "TOR": "TOR",
+        "WSN": "WSH",
+    }
+
+    if team_stats_df is not None and not team_stats_df.is_empty():
+        # Calculate ranks (higher is better = descending)
+        team_stats_df = team_stats_df.with_columns(
+            [
+                pl.col("Avg_Runs_For")
+                .rank(descending=True, method="min")
+                .cast(pl.Int32)
+                .alias("R_Rank"),
+                pl.col("wOBA_vs_LHP")
+                .rank(descending=True, method="min")
+                .cast(pl.Int32)
+                .alias("wOBA_L_Rank"),
+                pl.col("wOBA_vs_RHP")
+                .rank(descending=True, method="min")
+                .cast(pl.Int32)
+                .alias("wOBA_R_Rank"),
+                pl.col("Park_Factor")
+                .rank(descending=True, method="min")
+                .cast(pl.Int32)
+                .alias("Park_Rank"),
+                pl.col("Runs_L10")
+                .rank(descending=True, method="min")
+                .cast(pl.Int32)
+                .alias("Runs_L10_Rank"),
+            ]
+        )
+
+        # Join away team stats
+        away_team_stats = team_stats_df.select(
+            [
+                pl.col("Team_Abbr"),
+                pl.col("Avg_Runs_For").alias("Away_Avg_R"),
+                pl.col("R_Rank").alias("Away_R_Rank"),
+                pl.col("wOBA_vs_LHP").alias("Away_wOBA_L"),
+                pl.col("wOBA_L_Rank").alias("Away_wOBA_L_Rank"),
+                pl.col("wOBA_vs_RHP").alias("Away_wOBA_R"),
+                pl.col("wOBA_R_Rank").alias("Away_wOBA_R_Rank"),
+                pl.col("Park_Factor").alias("Away_Park"),
+                pl.col("Park_Rank").alias("Away_Park_Rank"),
+                pl.col("Runs_L10").alias("Away_Runs_L10"),
+                pl.col("Runs_L10_Rank").alias("Away_Runs_L10_Rank"),
+            ]
+        )
+        probables_df = probables_df.with_columns(
+            pl.col("Away").replace(FG_TO_SC).alias("Away_SC")
+        )
+        probables_df = probables_df.join(
+            away_team_stats, left_on="Away_SC", right_on="Team_Abbr", how="left"
+        ).drop("Away_SC")
+
+        # Join home team stats
+        home_team_stats = team_stats_df.select(
+            [
+                pl.col("Team_Abbr"),
+                pl.col("Avg_Runs_For").alias("Home_Avg_R"),
+                pl.col("R_Rank").alias("Home_R_Rank"),
+                pl.col("wOBA_vs_LHP").alias("Home_wOBA_L"),
+                pl.col("wOBA_L_Rank").alias("Home_wOBA_L_Rank"),
+                pl.col("wOBA_vs_RHP").alias("Home_wOBA_R"),
+                pl.col("wOBA_R_Rank").alias("Home_wOBA_R_Rank"),
+                pl.col("Park_Factor").alias("Home_Park"),
+                pl.col("Park_Rank").alias("Home_Park_Rank"),
+                pl.col("Runs_L10").alias("Home_Runs_L10"),
+                pl.col("Runs_L10_Rank").alias("Home_Runs_L10_Rank"),
+            ]
+        )
+        probables_df = probables_df.with_columns(
+            pl.col("Home").replace(FG_TO_SC).alias("Home_SC")
+        )
+        probables_df = probables_df.join(
+            home_team_stats, left_on="Home_SC", right_on="Team_Abbr", how="left"
+        ).drop("Home_SC")
+
+    # Add Matchup Metric columns
+    # We want to show how the team performing AGAINST the pitcher's hand
+    if "Away Hand" in probables_df.columns and "Home_wOBA_L" in probables_df.columns:
+        probables_df = probables_df.with_columns(
+            pl.when(pl.col("Away Hand") == "L")
+            .then(pl.col("Home_wOBA_L"))
+            .otherwise(pl.col("Home_wOBA_R"))
+            .alias("Opp wOBA (A)"),
+            pl.when(pl.col("Home Hand") == "L")
+            .then(pl.col("Away_wOBA_L"))
+            .otherwise(pl.col("Away_wOBA_R"))
+            .alias("Opp wOBA (H)"),
+        )
+
+    # Format names for display
+    probables_df = probables_df.with_columns(
+        pl.struct(["Away Pitcher", "Away Hand"])
+        .map_elements(
+            lambda x: f"{format_short_name(x['Away Pitcher'])} ({x['Away Hand']})"
+            if x["Away Hand"]
+            else format_short_name(x["Away Pitcher"]),
+            return_dtype=pl.String,
+        )
+        .alias("Pitcher (A)"),
+        pl.struct(["Home Pitcher", "Home Hand"])
+        .map_elements(
+            lambda x: f"{format_short_name(x['Home Pitcher'])} ({x['Home Hand']})"
+            if x["Home Hand"]
+            else format_short_name(x["Home Pitcher"]),
+            return_dtype=pl.String,
+        )
+        .alias("Pitcher (H)"),
+    )
+
+    # Final column selection
+    display_cols = [
+        "Time",
+        "Away",
+        "Pitcher (A)",
+        "Away ERA",
+        "Away xERA",
+        "Away K-BB%",
+        "Opp wOBA (A)",
+        "Home",
+        "Pitcher (H)",
+        "Home ERA",
+        "Home xERA",
+        "Home K-BB%",
+        "Opp wOBA (H)",
+        "Home_Park",
+        "Home_Runs_L10",
+        "Away_Runs_L10",
+    ]
+
+    # Filter only columns that exist
+    display_cols = [c for c in display_cols if c in probables_df.columns]
+
+    display_df = probables_df.select(display_cols).fill_null("-")
+    pd_display = display_df.to_pandas()
+
+    # Formatting helper
+    def format_val(val, fmt="{:.2f}"):
+        try:
+            if val == "-" or val == "Data loading...":
+                return val
+            return fmt.format(float(val))
+        except:
+            return val
+
+    # Apply formatting
+    for col in pd_display.columns:
+        if any(x in col for x in ["ERA", "xERA", "wOBA", "Park"]):
+            pd_display[col] = pd_display[col].apply(lambda x: format_val(x))
+        if "K-BB%" in col:
+            pd_display[col] = pd_display[col].apply(lambda x: format_val(x, "{:.1f}%"))
+
+    # Tooltips
+    def get_matchup_tooltip(row, is_away=True):
+        opp_prefix = "Home" if is_away else "Away"
+        opp_abbr = row[opp_prefix]
+        tooltips = []
+
+        avg_r = row.get(f"{opp_prefix}_Avg_R", "-")
+        r_rank = row.get(f"{opp_prefix}_R_Rank", "-")
+        runs_l10 = row.get(f"{opp_prefix}_Runs_L10", "-")
+
+        if avg_r != "-" and avg_r != "Data loading...":
+            tooltips.append(f"{opp_abbr} Season Avg Runs: {format_val(avg_r)}")
+            tooltips.append(f"{opp_abbr} Runs (L10): {runs_l10}")
+
+        park = row.get("Home_Park", "-")
+        if park != "-":
+            tooltips.append(f"Stadium Park Factor: {format_val(park)}")
+
+        return "\n".join(tooltips)
+
+    pd_display["Away_Tooltip"] = pd_display.apply(
+        lambda x: get_matchup_tooltip(x, True), axis=1
+    )
+    pd_display["Home_Tooltip"] = pd_display.apply(
+        lambda x: get_matchup_tooltip(x, False), axis=1
+    )
+
+    # AgGrid configuration
+    gb = GridOptionsBuilder.from_dataframe(pd_display)
+    gb.configure_default_column(resizable=True, filterable=True, sortable=True)
+
+    gb.configure_column("Pitcher (A)", tooltipField="Away_Tooltip", minWidth=140)
+    gb.configure_column("Pitcher (H)", tooltipField="Home_Tooltip", minWidth=140)
+    gb.configure_column("Away ERA", headerName="ERA (A)", minWidth=80)
+    gb.configure_column("Away xERA", headerName="xERA (A)", minWidth=80)
+    gb.configure_column("Home ERA", headerName="ERA (H)", minWidth=80)
+    gb.configure_column("Home xERA", headerName="xERA (H)", minWidth=80)
+    gb.configure_column("Opp wOBA (A)", headerName="Opp wOBA (vs Hand)", minWidth=110)
+    gb.configure_column("Opp wOBA (H)", headerName="Opp wOBA (vs Hand)", minWidth=110)
+
+    gb.configure_column("Away_Tooltip", hide=True)
+    gb.configure_column("Home_Tooltip", hide=True)
+    gb.configure_column("Home_Park", headerName="Park Factor", minWidth=80)
+    gb.configure_column("Home_Runs_L10", headerName="Runs L10 (H)", minWidth=80)
+    gb.configure_column("Away_Runs_L10", headerName="Runs L10 (A)", minWidth=80)
+
+    # Styling for good matchups (e.g. low wOBA vs good pitcher)
+    cellStyle = JsCode("""
+        function(params) {
+            if (params.colDef.field.includes('Opp wOBA')) {
+                let val = parseFloat(params.value);
+                if (val < 0.300) return {'background-color': '#1b5e20', 'color': 'white'};
+                if (val > 0.340) return {'background-color': '#b71c1c', 'color': 'white'};
+            }
+            return {};
+        }
+    """)
+    gb.configure_column("Opp wOBA (A)", cellStyle=cellStyle)
+    gb.configure_column("Opp wOBA (H)", cellStyle=cellStyle)
+
+    gridOptions = gb.build()
+    gridOptions["domLayout"] = "autoHeight"
+
+    AgGrid(
+        pd_display,
+        gridOptions=gridOptions,
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=True,
+    )
+
+    # Rerun if team stats need loading
+    if st.session_state.team_stats_df is None:
+        try:
+            stats = get_cached_team_stats(year)
+            st.session_state.team_stats_df = stats
+            st.rerun()
+        except:
+            pass
+
+else:
+    st.write(f"No games found for {date_str}.")
