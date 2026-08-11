@@ -42,10 +42,19 @@ def create_session() -> OAuth2:
 
     :return OAuth2: Active OAuth2 session
     """
-    if not os.path.isfile("oauth.json"):
+    if not os.path.isfile("oauth.json") and "OAUTH_TOKEN" in os.environ:
         with open("oauth.json", "w", encoding="utf-8") as f:
             f.write(os.environ["OAUTH_TOKEN"])
-    sc = OAuth2(None, None, from_file="oauth.json")
+
+    try:
+        sc = OAuth2(None, None, from_file="oauth.json")
+    except Exception as e:
+        print(f"Error initializing OAuth2: {e}")
+        print(
+            "If you need to re-authorize, ensure oauth.json contains your consumer_key and consumer_secret."
+        )
+        raise e
+
     return sc
 
 
@@ -520,16 +529,27 @@ def main() -> None:
     """
     # Authenticate the session and get the League object to query against
     session = create_session()
-    game = yfa.Game(session, "mlb")
 
-    league = None
-    for i in game.league_ids():
-        l = yfa.League(session, i)
-        league_info = l.__dict__["settings_cache"]
-        if league_info["name"] == LEAGUE_NAME and int(league_info["season"]) == SEASON:
-            league = l
-            print("Found correct league....")
-            break
+    # Attempt direct access to league to bypass flaky 'list leagues' endpoint
+    league_key = "453.l.93631"
+    try:
+        league = yfa.League(session, league_key)
+        league_info = league.__dict__["settings_cache"]
+        print(f"Directly accessed league: {league_info['name']}")
+    except Exception as e:
+        print(f"Direct access failed: {e}. Falling back to search...")
+        game = yfa.Game(session, "mlb")
+        league = None
+        for i in game.league_ids():
+            l = yfa.League(session, i)
+            league_info = l.__dict__["settings_cache"]
+            if (
+                league_info["name"] == LEAGUE_NAME
+                and int(league_info["season"]) == SEASON
+            ):
+                league = l
+                print("Found correct league....")
+                break
 
     if league is None:
         print(f"League '{LEAGUE_NAME}' for season {SEASON} not found.")
