@@ -179,24 +179,30 @@ if not probables_df.is_empty():
             ).drop(f"{prefix}_SC")
 
     # Format names
-    probables_df = probables_df.with_columns(
-        pl.struct(["Away Pitcher", "Away Hand"])
-        .map_elements(
-            lambda x: f"{format_short_name(x['Away Pitcher'])} ({x['Away Hand']})"
-            if x["Away Hand"]
-            else format_short_name(x["Away Pitcher"]),
-            return_dtype=pl.String,
-        )
-        .alias("Pitcher (A)"),
-        pl.struct(["Home Pitcher", "Home Hand"])
-        .map_elements(
-            lambda x: f"{format_short_name(x['Home Pitcher'])} ({x['Home Hand']})"
-            if x["Home Hand"]
-            else format_short_name(x["Home Pitcher"]),
-            return_dtype=pl.String,
-        )
-        .alias("Pitcher (H)"),
-    )
+    for prefix in ["Away", "Home"]:
+        p_col = f"{prefix} Pitcher"
+        h_col = f"{prefix} Hand"
+        alias_col = f"Pitcher ({prefix[0]})"
+
+        if h_col in probables_df.columns:
+            probables_df = probables_df.with_columns(
+                pl.struct([p_col, h_col])
+                .map_elements(
+                    lambda x,
+                    pc=p_col,
+                    hc=h_col: f"{format_short_name(x[pc])} ({x[hc]})"
+                    if x[hc]
+                    else format_short_name(x[pc]),
+                    return_dtype=pl.String,
+                )
+                .alias(alias_col)
+            )
+        else:
+            probables_df = probables_df.with_columns(
+                pl.col(p_col)
+                .map_elements(format_short_name, return_dtype=pl.String)
+                .alias(alias_col)
+            )
 
     # Highlight Free Agents
     fa_pitchers = set()
@@ -249,9 +255,15 @@ if not probables_df.is_empty():
         "Home xERA",
         "Home K-BB%",
     ]
+    # Check which "Hand" columns exist to include in display_df for tooltips
+    extra_cols = ["Away_Is_FA", "Home_Is_FA"]
+    if "Away Hand" in probables_df.columns:
+        extra_cols.append("Away Hand")
+    if "Home Hand" in probables_df.columns:
+        extra_cols.append("Home Hand")
+
     display_df = probables_df.select(
-        [c for c in display_cols if c in probables_df.columns]
-        + ["Away_Is_FA", "Home_Is_FA", "Away Hand", "Home Hand"]
+        [c for c in display_cols if c in probables_df.columns] + extra_cols
     ).fill_null("-")
     pd_display = display_df.to_pandas()
 
@@ -336,15 +348,19 @@ if not probables_df.is_empty():
     gb.configure_column("Pitcher (A)", cellStyle=cellStyle)
     gb.configure_column("Pitcher (H)", cellStyle=cellStyle)
 
-    for c in [
+    hide_cols = [
         "Away_Tooltip",
         "Home_Tooltip",
         "Row_Tooltip",
         "Away_Is_FA",
         "Home_Is_FA",
-        "Away Hand",
-        "Home Hand",
-    ]:
+    ]
+    if "Away Hand" in pd_display.columns:
+        hide_cols.append("Away Hand")
+    if "Home Hand" in pd_display.columns:
+        hide_cols.append("Home Hand")
+
+    for c in hide_cols:
         gb.configure_column(c, hide=True)
 
     gridOptions = gb.build()

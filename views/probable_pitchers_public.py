@@ -213,24 +213,31 @@ if not probables_df.is_empty():
         )
 
     # Format names for display
-    probables_df = probables_df.with_columns(
-        pl.struct(["Away Pitcher", "Away Hand"])
-        .map_elements(
-            lambda x: f"{format_short_name(x['Away Pitcher'])} ({x['Away Hand']})"
-            if x["Away Hand"]
-            else format_short_name(x["Away Pitcher"]),
-            return_dtype=pl.String,
-        )
-        .alias("Pitcher (A)"),
-        pl.struct(["Home Pitcher", "Home Hand"])
-        .map_elements(
-            lambda x: f"{format_short_name(x['Home Pitcher'])} ({x['Home Hand']})"
-            if x["Home Hand"]
-            else format_short_name(x["Home Pitcher"]),
-            return_dtype=pl.String,
-        )
-        .alias("Pitcher (H)"),
-    )
+    # Handle cases where Hand columns are missing
+    for prefix in ["Away", "Home"]:
+        p_col = f"{prefix} Pitcher"
+        h_col = f"{prefix} Hand"
+        alias_col = f"Pitcher ({prefix[0]})"
+
+        if h_col in probables_df.columns:
+            probables_df = probables_df.with_columns(
+                pl.struct([p_col, h_col])
+                .map_elements(
+                    lambda x,
+                    pc=p_col,
+                    hc=h_col: f"{format_short_name(x[pc])} ({x[hc]})"
+                    if x[hc]
+                    else format_short_name(x[pc]),
+                    return_dtype=pl.String,
+                )
+                .alias(alias_col)
+            )
+        else:
+            probables_df = probables_df.with_columns(
+                pl.col(p_col)
+                .map_elements(format_short_name, return_dtype=pl.String)
+                .alias(alias_col)
+            )
 
     # Final column selection
     display_cols = [
