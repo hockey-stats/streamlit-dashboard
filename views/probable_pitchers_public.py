@@ -301,33 +301,97 @@ if not probables_df.is_empty():
     gb.configure_default_column(
         resizable=True, filterable=True, sortable=True, minWidth=90
     )
-    gb.configure_column("Away", minWidth=70, flex=1)
-    gb.configure_column("Home", minWidth=70, flex=1)
-    gb.configure_column(
-        "Pitcher (A)", tooltipField="Away_Tooltip", minWidth=150, flex=2
-    )
-    gb.configure_column(
-        "Pitcher (H)", tooltipField="Home_Tooltip", minWidth=150, flex=2
-    )
-    gb.configure_column("Opp wOBA (A)", headerName="Opp wOBA", minWidth=100)
-    gb.configure_column("Opp wOBA (H)", headerName="Opp wOBA", minWidth=100)
 
+    # Define JS for cell styling (Color coding for Away/Home and wOBA)
     cellStyle = JsCode("""
         function(params) {
-            if (params.colDef.field.includes('Opp wOBA')) {
-                let val = parseFloat(params.value);
-                if (val < 0.300) return {'background-color': '#1b5e20', 'color': 'white'};
-                if (val > 0.340) return {'background-color': '#b71c1c', 'color': 'white'};
+            let field = params.colDef.field;
+            let style = {};
+            
+            // Base background colors for Home/Away distinction
+            if (field.includes('Away') || field.includes('(A)')) {
+                style['background-color'] = '#f1f8ff'; // Very light blue for Away
+            } else if (field.includes('Home') || field.includes('(H)') || field === 'Home_Park') {
+                style['background-color'] = '#fff9db'; // Very light yellow for Home
             }
-            return {};
+
+            // Highlighting for wOBA performance
+            if (field.includes('Opp wOBA')) {
+                let val = parseFloat(params.value);
+                if (!isNaN(val)) {
+                    if (val < 0.300) {
+                        style['background-color'] = '#1b5e20'; 
+                        style['color'] = 'white';
+                    } else if (val > 0.340) {
+                        style['background-color'] = '#b71c1c';
+                        style['color'] = 'white';
+                    }
+                }
+            }
+            return style;
         }
     """)
-    gb.configure_column("Opp wOBA (A)", cellStyle=cellStyle)
-    gb.configure_column("Opp wOBA (H)", cellStyle=cellStyle)
+
+    # Away Columns
+    gb.configure_column(
+        "Away", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Pitcher (A)",
+        headerName="Pitcher",
+        tooltipField="Away_Tooltip",
+        minWidth=150,
+        flex=2,
+        cellStyle=cellStyle,
+    )
+    gb.configure_column("Away ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column(
+        "Away xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Away K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Opp wOBA (A)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Away_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+    )
+
+    # Home Columns
+    gb.configure_column(
+        "Home", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Pitcher (H)",
+        headerName="Pitcher",
+        tooltipField="Home_Tooltip",
+        minWidth=150,
+        flex=2,
+        cellStyle=cellStyle,
+    )
+    gb.configure_column("Home ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column(
+        "Home xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Opp wOBA (H)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home_Park", headerName="Park Factor", minWidth=100, cellStyle=cellStyle
+    )
+
     gb.configure_column("Away_Tooltip", hide=True)
     gb.configure_column("Home_Tooltip", hide=True)
 
     gridOptions = gb.build()
+
     gridOptions["rowHeight"] = 45
     gridOptions["headerHeight"] = 50
     gridOptions["pagination"] = True

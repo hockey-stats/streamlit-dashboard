@@ -335,18 +335,87 @@ if not probables_df.is_empty():
     gb.configure_default_column(
         resizable=True, filterable=True, sortable=True, minWidth=100
     )
-    gb.configure_column("Pitcher (A)", tooltipField="Away_Tooltip", minWidth=150)
-    gb.configure_column("Pitcher (H)", tooltipField="Home_Tooltip", minWidth=150)
 
+    # Define JS for cell styling (Color coding for Away/Home and Pitcher Status)
     cellStyle = JsCode(r"""
         function(params) {
-            if (params.colDef.field === 'Pitcher (A)' && (params.data.Away_Is_FA === true || params.data.Away_Is_FA === 'true')) return {'background-color': '#1b5e20', 'color': 'white'};
-            if (params.colDef.field === 'Pitcher (H)' && (params.data.Home_Is_FA === true || params.data.Home_Is_FA === 'true')) return {'background-color': '#1b5e20', 'color': 'white'};
-            return {};
+            let field = params.colDef.field;
+            let style = {};
+            
+            // 1. Base background colors for Home/Away distinction
+            if (field.includes('Away') || field.includes('(A)')) {
+                style['background-color'] = '#f1f8ff'; // Very light blue for Away
+            } else if (field.includes('Home') || field.includes('(H)')) {
+                style['background-color'] = '#fff9db'; // Very light yellow for Home
+            }
+
+            // 2. Highlighting for Free Agent Pitchers (High Priority)
+            if (field === 'Pitcher (A)' && (params.data.Away_Is_FA === true || params.data.Away_Is_FA === 'true')) {
+                return {'background-color': '#1b5e20', 'color': 'white'};
+            }
+            if (field === 'Pitcher (H)' && (params.data.Home_Is_FA === true || params.data.Home_Is_FA === 'true')) {
+                return {'background-color': '#1b5e20', 'color': 'white'};
+            }
+
+            // 3. Highlight rows where I have hitters facing the pitcher (Medium Priority)
+            if (params.data.Row_Tooltip && params.data.Row_Tooltip.includes('Facing My Hitters')) {
+                let lines = params.data.Row_Tooltip.split('\n');
+                if (lines.length >= 2) {
+                    let hittersAway = lines[0].split(': ')[1];
+                    let hittersHome = lines[1].split(': ')[1];
+                    let isAwayColumn = field.includes('(A)') || field.includes('Away');
+                    
+                    // If viewing an Away column (A), check if Home team has my hitters (who are facing the A pitcher)
+                    if ((isAwayColumn && hittersHome !== '-') || (!isAwayColumn && hittersAway !== '-')) {
+                        style['background-color'] = '#a6761d';
+                        style['color'] = 'white';
+                    }
+                }
+            }
+
+            return style;
         }
     """)
-    gb.configure_column("Pitcher (A)", cellStyle=cellStyle)
-    gb.configure_column("Pitcher (H)", cellStyle=cellStyle)
+
+    # Away Columns
+    gb.configure_column(
+        "Away", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Pitcher (A)",
+        headerName="Pitcher",
+        tooltipField="Away_Tooltip",
+        minWidth=150,
+        flex=2,
+        cellStyle=cellStyle,
+    )
+    gb.configure_column("Away ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column(
+        "Away xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Away K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+    )
+
+    # Home Columns
+    gb.configure_column(
+        "Home", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Pitcher (H)",
+        headerName="Pitcher",
+        tooltipField="Home_Tooltip",
+        minWidth=150,
+        flex=2,
+        cellStyle=cellStyle,
+    )
+    gb.configure_column("Home ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column(
+        "Home xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+    )
 
     hide_cols = [
         "Away_Tooltip",
