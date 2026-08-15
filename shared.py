@@ -10,39 +10,66 @@ from datetime import datetime, timedelta
 def load_data(today: str) -> None:
     """
     Function to be run at the initialization of the dashboard.
+    Fetches the latest data artifact from GitHub Actions.
     """
     url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/artifacts"
     payload = {}
-    headers = {"Authorization": f"Bearer {os.environ['GITHUB_PAT']}"}
+
+    pat = os.environ.get("GITHUB_PAT")
+    if not pat:
+        print("GITHUB_PAT environment variable not found.")
+        if os.path.exists("data"):
+            return
+        raise ValueError("GITHUB_PAT not set and no local data available.")
+
+    headers = {"Authorization": f"Bearer {pat}"}
     output_filename = "data.zip"
 
-    response = requests.request("GET", url, headers=headers, data=payload, timeout=10)
-    response_body = json.loads(response.text)
+    try:
+        response = requests.request(
+            "GET", url, headers=headers, data=payload, timeout=10
+        )
+        response.raise_for_status()
+        response_body = response.json()
+    except Exception as e:
+        print(f"Error fetching artifacts: {e}")
+        if os.path.exists("data"):
+            return
+        raise e
 
     download_url = None
-    # Prioritize 'public-stats-data' artifact
-    for artifact in response_body["artifacts"]:
+
+    # 1. Look for 'public-stats-data' (the new one)
+    # The list is usually sorted by most recent first
+    artifacts = response_body.get("artifacts", [])
+    print(f"Total artifacts found: {len(artifacts)}")
+
+    for artifact in artifacts:
         if artifact["name"] == "public-stats-data":
-            artifact_creation_date = artifact["created_at"].split("T")[0]
-            if today == artifact_creation_date:
-                download_url = artifact["archive_download_url"]
-                break
-    else:
-        # Fallback to old name just in case, or use existing local data
-        for artifact in response_body["artifacts"]:
+            download_url = artifact["archive_download_url"]
+            print(
+                f"Found latest public-stats-data artifact created at {artifact['created_at']}"
+            )
+            break
+
+    # 2. Fallback to old name if not found
+    if not download_url:
+        for artifact in response_body.get("artifacts", []):
             if artifact["name"] == "dashboard-fa-data":
-                artifact_creation_date = artifact["created_at"].split("T")[0]
-                if today == artifact_creation_date:
-                    download_url = artifact["archive_download_url"]
-                    break
-        else:
-            if os.path.exists("data"):
-                print(f"Data for {today} not found, using existing local data.")
-                return
-            raise ValueError(f"Data for {today} not found and no local data available.")
+                download_url = artifact["archive_download_url"]
+                print(
+                    f"Found fallback dashboard-fa-data artifact created at {artifact['created_at']}"
+                )
+                break
+
+    if not download_url:
+        if os.path.exists("data"):
+            print(f"No artifacts found, using existing local data.")
+            return
+        raise ValueError(f"No data artifacts found and no local data available.")
 
     if download_url:
-        print(f"Found artifact at {download_url}")
+        print(f"Downloading artifact from {download_url}")
         dl_response = requests.request(
             "GET", download_url, headers=headers, data=payload, timeout=20
         )
@@ -51,6 +78,7 @@ def load_data(today: str) -> None:
 
         with zipfile.ZipFile(output_filename, "r") as zip_ref:
             zip_ref.extractall("data")
+        print("Data extraction successful.")
 
 
 import time

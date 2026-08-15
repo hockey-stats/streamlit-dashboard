@@ -25,6 +25,13 @@ pg = st.navigation(pages, position="hidden")
 # Render header and navigation
 st.markdown("### ⚾ Fantasy Baseball Dashboard")
 
+# Initialize data on startup
+today = shared.get_today_date()
+try:
+    shared.load_data(today.strftime("%Y-%m-%d"))
+except Exception as e:
+    st.error(f"Error loading dashboard data: {e}")
+
 nav_col, refresh_col = st.columns([5, 1])
 
 with nav_col:

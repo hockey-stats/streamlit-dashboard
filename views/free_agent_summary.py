@@ -45,7 +45,7 @@ THRESHOLDS = {
 
 # Get data for today's date.
 today = shared.get_today_date()
-shared.load_data(today.strftime("%Y-%m-%d"))
+# shared.load_data is now called in main.py on startup
 
 # Fetch today's probable pitchers for highlighting
 probables_df = get_todays_probables.get_probables(today.strftime("%Y-%m-%d"))
