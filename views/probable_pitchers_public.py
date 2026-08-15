@@ -9,7 +9,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 st.markdown("# Today's Probable Pitchers (Public View)")
 st.caption(
-    "Matchup analysis using public MLB and Statcast data. 'wOBA' is the opposing team's performance against the pitcher's handedness. 'L10' refers to the average runs over the last 10 games for that specific team (Away L10 for the Away team, Home L10 for the Home team)."
+    "Matchup analysis using public MLB and Statcast data. 'wOBA' and 'L10' refer to the performance of the team the pitcher is FACING (the opposing team's wOBA vs his handedness, and the opposing team's average runs scored over their last 10 games)."
 )
 
 
@@ -216,6 +216,12 @@ if not probables_df.is_empty():
             .alias("Opp wOBA (H)"),
         )
 
+    if "Home_Runs_L10" in probables_df.columns:
+        probables_df = probables_df.with_columns(
+            pl.col("Home_Runs_L10").alias("Opp L10 (A)"),
+            pl.col("Away_Runs_L10").alias("Opp L10 (H)"),
+        )
+
     # Format names for display
     # Handle cases where Hand columns are missing
     for prefix in ["Away", "Home"]:
@@ -251,14 +257,14 @@ if not probables_df.is_empty():
         "Away xERA",
         "Away K-BB%",
         "Opp wOBA (A)",
-        "Away_Runs_L10",
+        "Opp L10 (A)",
         "Home",
         "Pitcher (H)",
         "Home ERA",
         "Home xERA",
         "Home K-BB%",
         "Opp wOBA (H)",
-        "Home_Runs_L10",
+        "Opp L10 (H)",
         "Home_Park",
     ]
 
@@ -367,7 +373,7 @@ if not probables_df.is_empty():
         "Opp wOBA (A)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Away_Runs_L10",
+        "Opp L10 (A)",
         headerName="L10",
         minWidth=45,
         cellStyle=cellStyle,
@@ -397,7 +403,7 @@ if not probables_df.is_empty():
         "Opp wOBA (H)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Home_Runs_L10",
+        "Opp L10 (H)",
         headerName="L10",
         minWidth=45,
         cellStyle=cellStyle,
