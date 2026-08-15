@@ -329,10 +329,10 @@ if not probables_df.is_empty():
             if (field.includes('Opp wOBA')) {
                 let val = parseFloat(params.value);
                 if (!isNaN(val)) {
-                    if (val < 0.300) {
+                    if (val < 0.290) {
                         style['background-color'] = '#1b5e20'; 
                         style['color'] = 'white';
-                    } else if (val > 0.340) {
+                    } else if (val > 0.350) {
                         style['background-color'] = '#b71c1c';
                         style['color'] = 'white';
                     }
@@ -369,7 +369,67 @@ if not probables_df.is_empty():
         headerName="L10",
         minWidth=60,
         cellStyle=cellStyle,
-        filterable=False,
+        filter=False,
+    )
+
+    # Home Columns
+    gb.configure_column(
+        "Home", headerName="Team", minWidth=60, flex=1, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Pitcher (H)",
+        headerName="Pitcher",
+        tooltipField="Home_Tooltip",
+        minWidth=120,
+        flex=2,
+        cellStyle=cellStyle,
+    )
+    gb.configure_column("Home ERA", headerName="ERA", minWidth=60, cellStyle=cellStyle)
+    gb.configure_column(
+        "Home xERA", headerName="xERA", minWidth=60, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Opp wOBA (H)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home_Runs_L10",
+        headerName="L10",
+        minWidth=60,
+        cellStyle=cellStyle,
+        filter=False,
+    )
+    gb.configure_column(
+        "Home_Park", headerName="Park", minWidth=70, cellStyle=cellStyle
+    )
+
+    gb.configure_column("Away_Tooltip", hide=True)
+    gb.configure_column("Home_Tooltip", hide=True)
+
+    gridOptions = gb.build()
+
+    gridOptions["rowHeight"] = 28
+    gridOptions["headerHeight"] = 32
+    gridOptions["pagination"] = True
+    gridOptions["paginationPageSize"] = 25
+
+    # CSS for font size consistency
+    css = {
+        ".ag-row": {"font-size": "8.5pt"},
+        ".ag-header-cell-text": {"font-size": "8.5pt"},
+    }
+
+    AgGrid(
+        pd_display,
+        gridOptions=gridOptions,
+        allow_unsafe_jscode=True,
+        fit_columns_on_grid_load=False,
+        height=450,
+        width="100%",
+        theme="alpine",
+        custom_css=css,
     )
 
     # Home Columns
