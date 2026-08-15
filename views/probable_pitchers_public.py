@@ -370,7 +370,7 @@ if not probables_df.is_empty():
         "Away K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Opp wOBA (A)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
+        "Opp wOBA (A)", headerName="wOBA", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
         "Opp L10 (A)",
@@ -400,7 +400,7 @@ if not probables_df.is_empty():
         "Home K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Opp wOBA (H)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
+        "Opp wOBA (H)", headerName="wOBA", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
         "Opp L10 (H)",
@@ -410,7 +410,7 @@ if not probables_df.is_empty():
         filter=False,
     )
     gb.configure_column(
-        "Home_Park", headerName="Park", minWidth=70, cellStyle=cellStyle
+        "Home_Park", headerName="Park", minWidth=60, cellStyle=cellStyle
     )
 
     gb.configure_column("Away_Tooltip", hide=True)
@@ -434,7 +434,7 @@ if not probables_df.is_empty():
         gridOptions=gridOptions,
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=False,
-        height=460,
+        height=500,
         width="100%",
         theme="alpine",
         custom_css=css,
