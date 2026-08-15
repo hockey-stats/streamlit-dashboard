@@ -309,7 +309,7 @@ if not probables_df.is_empty():
 
     gb = GridOptionsBuilder.from_dataframe(pd_display)
     gb.configure_default_column(
-        resizable=True, filterable=True, sortable=True, minWidth=90
+        resizable=True, filterable=True, sortable=True, minWidth=70
     )
 
     # Define JS for cell styling (Color coding for Away/Home and wOBA)
@@ -344,57 +344,65 @@ if not probables_df.is_empty():
 
     # Away Columns
     gb.configure_column(
-        "Away", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+        "Away", headerName="Team", minWidth=60, flex=1, cellStyle=cellStyle
     )
     gb.configure_column(
         "Pitcher (A)",
         headerName="Pitcher",
         tooltipField="Away_Tooltip",
-        minWidth=150,
+        minWidth=120,
         flex=2,
         cellStyle=cellStyle,
     )
-    gb.configure_column("Away ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column("Away ERA", headerName="ERA", minWidth=60, cellStyle=cellStyle)
     gb.configure_column(
-        "Away xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+        "Away xERA", headerName="xERA", minWidth=60, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Away K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+        "Away K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Opp wOBA (A)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+        "Opp wOBA (A)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Away_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+        "Away_Runs_L10",
+        headerName="L10",
+        minWidth=60,
+        cellStyle=cellStyle,
+        filterable=False,
     )
 
     # Home Columns
     gb.configure_column(
-        "Home", headerName="Team", minWidth=70, flex=1, cellStyle=cellStyle
+        "Home", headerName="Team", minWidth=60, flex=1, cellStyle=cellStyle
     )
     gb.configure_column(
         "Pitcher (H)",
         headerName="Pitcher",
         tooltipField="Home_Tooltip",
-        minWidth=150,
+        minWidth=120,
         flex=2,
         cellStyle=cellStyle,
     )
-    gb.configure_column("Home ERA", headerName="ERA", minWidth=80, cellStyle=cellStyle)
+    gb.configure_column("Home ERA", headerName="ERA", minWidth=60, cellStyle=cellStyle)
     gb.configure_column(
-        "Home xERA", headerName="xERA", minWidth=80, cellStyle=cellStyle
+        "Home xERA", headerName="xERA", minWidth=60, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Home K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
+        "Home K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Opp wOBA (H)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+        "Opp wOBA (H)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
     )
     gb.configure_column(
-        "Home_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+        "Home_Runs_L10",
+        headerName="L10",
+        minWidth=60,
+        cellStyle=cellStyle,
+        filterable=False,
     )
     gb.configure_column(
-        "Home_Park", headerName="Park Factor", minWidth=100, cellStyle=cellStyle
+        "Home_Park", headerName="Park", minWidth=70, cellStyle=cellStyle
     )
 
     gb.configure_column("Away_Tooltip", hide=True)
@@ -402,10 +410,16 @@ if not probables_df.is_empty():
 
     gridOptions = gb.build()
 
-    gridOptions["rowHeight"] = 45
-    gridOptions["headerHeight"] = 50
+    gridOptions["rowHeight"] = 32
+    gridOptions["headerHeight"] = 35
     gridOptions["pagination"] = True
     gridOptions["paginationPageSize"] = 25
+
+    # CSS for font size consistency
+    css = {
+        ".ag-row": {"font-size": "9pt"},
+        ".ag-header-cell-text": {"font-size": "9pt"},
+    }
 
     AgGrid(
         pd_display,
@@ -415,6 +429,7 @@ if not probables_df.is_empty():
         height=800,
         width="100%",
         theme="alpine",
+        custom_css=css,
     )
 else:
     st.write(f"No games found for {date_str}.")

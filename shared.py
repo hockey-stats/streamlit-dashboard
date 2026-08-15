@@ -42,7 +42,6 @@ def load_data(today: str) -> None:
     # 1. Look for 'public-stats-data' (the new one)
     # The list is usually sorted by most recent first
     artifacts = response_body.get("artifacts", [])
-    print(f"Total artifacts found: {len(artifacts)}")
 
     for artifact in artifacts:
         if artifact["name"] == "public-stats-data":
