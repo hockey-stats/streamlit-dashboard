@@ -41,7 +41,6 @@ pitcher_stats_path = "data/all_pitcher_stats.csv"
 probables_path = "data/todays_probables.csv"
 
 
-@st.cache_data
 def load_local_data():
     t_df = (
         pl.read_csv(team_stats_path)
@@ -62,6 +61,11 @@ def load_local_data():
 
 
 team_stats_df, pitcher_stats, probables_df = load_local_data()
+
+if team_stats_df.is_empty():
+    st.warning(
+        "Team statistics (wOBA, L10, Park Factor) not found. Displaying basic matchup data."
+    )
 
 if not probables_df.is_empty():
     if not pitcher_stats.is_empty():
@@ -249,22 +253,32 @@ if not probables_df.is_empty():
         "Away ERA",
         "Away xERA",
         "Away K-BB%",
+        "Opp wOBA (A)",
+        "Away_Runs_L10",
         "Home",
         "Pitcher (H)",
         "Home ERA",
         "Home xERA",
         "Home K-BB%",
+        "Opp wOBA (H)",
+        "Home_Runs_L10",
+        "Home_Park",
     ]
-    # Check which "Hand" columns exist to include in display_df for tooltips
+
+    # Ensure all display columns exist in the dataframe, filling with "-" if missing
+    existing_cols = probables_df.columns
+    for col in display_cols:
+        if col not in existing_cols:
+            probables_df = probables_df.with_columns(pl.lit("-").alias(col))
+
+    # Check which columns exist in the final selection
     extra_cols = ["Away_Is_FA", "Home_Is_FA"]
     if "Away Hand" in probables_df.columns:
         extra_cols.append("Away Hand")
     if "Home Hand" in probables_df.columns:
         extra_cols.append("Home Hand")
 
-    display_df = probables_df.select(
-        [c for c in display_cols if c in probables_df.columns] + extra_cols
-    ).fill_null("-")
+    display_df = probables_df.select(display_cols + extra_cols).fill_null("-")
     pd_display = display_df.to_pandas()
 
     def get_pitcher_tooltip(row, is_away=True):
@@ -396,6 +410,12 @@ if not probables_df.is_empty():
     gb.configure_column(
         "Away K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
     )
+    gb.configure_column(
+        "Opp wOBA (A)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Away_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+    )
 
     # Home Columns
     gb.configure_column(
@@ -416,21 +436,21 @@ if not probables_df.is_empty():
     gb.configure_column(
         "Home K-BB%", headerName="K-BB%", minWidth=90, cellStyle=cellStyle
     )
+    gb.configure_column(
+        "Opp wOBA (H)", headerName="Opp wOBA", minWidth=100, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home_Runs_L10", headerName="Runs L10", minWidth=90, cellStyle=cellStyle
+    )
+    gb.configure_column(
+        "Home_Park", headerName="Park Factor", minWidth=100, cellStyle=cellStyle
+    )
 
-    hide_cols = [
-        "Away_Tooltip",
-        "Home_Tooltip",
-        "Row_Tooltip",
-        "Away_Is_FA",
-        "Home_Is_FA",
-    ]
-    if "Away Hand" in pd_display.columns:
-        hide_cols.append("Away Hand")
-    if "Home Hand" in pd_display.columns:
-        hide_cols.append("Home Hand")
-
-    for c in hide_cols:
-        gb.configure_column(c, hide=True)
+    gb.configure_column("Away_Tooltip", hide=True)
+    gb.configure_column("Home_Tooltip", hide=True)
+    gb.configure_column("Row_Tooltip", hide=True)
+    gb.configure_column("Away_Is_FA", hide=True)
+    gb.configure_column("Home_Is_FA", hide=True)
 
     gridOptions = gb.build()
     gridOptions["rowHeight"] = 45

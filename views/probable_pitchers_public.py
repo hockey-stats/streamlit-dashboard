@@ -44,7 +44,6 @@ pitcher_stats_path = "data/all_pitcher_stats.csv"
 probables_path = "data/todays_probables.csv"
 
 
-@st.cache_data
 def load_local_data():
     t_df = (
         pl.read_csv(team_stats_path)
@@ -65,6 +64,11 @@ def load_local_data():
 
 
 team_stats_df, pitcher_stats, probables_df = load_local_data()
+
+if team_stats_df.is_empty():
+    st.warning(
+        "Team statistics (wOBA, L10, Park Factor) not found. Displaying basic matchup data."
+    )
 
 if not probables_df.is_empty():
     if not pitcher_stats.is_empty():
@@ -247,18 +251,24 @@ if not probables_df.is_empty():
         "Away xERA",
         "Away K-BB%",
         "Opp wOBA (A)",
+        "Away_Runs_L10",
         "Home",
         "Pitcher (H)",
         "Home ERA",
         "Home xERA",
         "Home K-BB%",
         "Opp wOBA (H)",
-        "Home_Park",
         "Home_Runs_L10",
-        "Away_Runs_L10",
+        "Home_Park",
     ]
 
-    display_cols = [c for c in display_cols if c in probables_df.columns]
+    # Ensure all display columns exist in the dataframe, filling with "-" if missing
+    existing_cols = probables_df.columns
+    for col in display_cols:
+        if col not in existing_cols:
+            probables_df = probables_df.with_columns(pl.lit("-").alias(col))
+
+    # Re-verify columns after additions
     display_df = probables_df.select(display_cols).fill_null("-")
     pd_display = display_df.to_pandas()
 
