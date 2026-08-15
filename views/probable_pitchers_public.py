@@ -9,7 +9,7 @@ from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
 
 st.markdown("# Today's Probable Pitchers (Public View)")
 st.caption(
-    "Matchup analysis using only public MLB and Statcast data. 'Opp wOBA' is the opposing team's wOBA against the pitcher's handedness."
+    "Matchup analysis using public MLB and Statcast data. 'wOBA' is the opposing team's performance against the pitcher's handedness. 'L10' refers to the average runs over the last 10 games for that specific team (Away L10 for the Away team, Home L10 for the Home team)."
 )
 
 
@@ -281,8 +281,10 @@ if not probables_df.is_empty():
             return val
 
     for col in pd_display.columns:
-        if any(x in col for x in ["ERA", "xERA", "wOBA", "Park"]):
+        if any(x in col for x in ["ERA", "xERA", "Park"]):
             pd_display[col] = pd_display[col].apply(lambda x: format_val(x))
+        if "wOBA" in col:
+            pd_display[col] = pd_display[col].apply(lambda x: format_val(x, "{:.3f}"))
         if "K-BB%" in col:
             pd_display[col] = pd_display[col].apply(lambda x: format_val(x, "{:.1f}%"))
 
@@ -367,7 +369,7 @@ if not probables_df.is_empty():
     gb.configure_column(
         "Away_Runs_L10",
         headerName="L10",
-        minWidth=60,
+        minWidth=45,
         cellStyle=cellStyle,
         filter=False,
     )
@@ -397,7 +399,7 @@ if not probables_df.is_empty():
     gb.configure_column(
         "Home_Runs_L10",
         headerName="L10",
-        minWidth=60,
+        minWidth=45,
         cellStyle=cellStyle,
         filter=False,
     )
@@ -413,7 +415,7 @@ if not probables_df.is_empty():
     gridOptions["rowHeight"] = 28
     gridOptions["headerHeight"] = 32
     gridOptions["pagination"] = True
-    gridOptions["paginationPageSize"] = 25
+    gridOptions["paginationPageSize"] = 15
 
     # CSS for font size consistency
     css = {
@@ -426,67 +428,7 @@ if not probables_df.is_empty():
         gridOptions=gridOptions,
         allow_unsafe_jscode=True,
         fit_columns_on_grid_load=False,
-        height=450,
-        width="100%",
-        theme="alpine",
-        custom_css=css,
-    )
-
-    # Home Columns
-    gb.configure_column(
-        "Home", headerName="Team", minWidth=60, flex=1, cellStyle=cellStyle
-    )
-    gb.configure_column(
-        "Pitcher (H)",
-        headerName="Pitcher",
-        tooltipField="Home_Tooltip",
-        minWidth=120,
-        flex=2,
-        cellStyle=cellStyle,
-    )
-    gb.configure_column("Home ERA", headerName="ERA", minWidth=60, cellStyle=cellStyle)
-    gb.configure_column(
-        "Home xERA", headerName="xERA", minWidth=60, cellStyle=cellStyle
-    )
-    gb.configure_column(
-        "Home K-BB%", headerName="K-BB%", minWidth=70, cellStyle=cellStyle
-    )
-    gb.configure_column(
-        "Opp wOBA (H)", headerName="wOBA", minWidth=80, cellStyle=cellStyle
-    )
-    gb.configure_column(
-        "Home_Runs_L10",
-        headerName="L10",
-        minWidth=60,
-        cellStyle=cellStyle,
-        filterable=False,
-    )
-    gb.configure_column(
-        "Home_Park", headerName="Park", minWidth=70, cellStyle=cellStyle
-    )
-
-    gb.configure_column("Away_Tooltip", hide=True)
-    gb.configure_column("Home_Tooltip", hide=True)
-
-    gridOptions = gb.build()
-
-    gridOptions["rowHeight"] = 32
-    gridOptions["headerHeight"] = 35
-    gridOptions["pagination"] = True
-    gridOptions["paginationPageSize"] = 25
-
-    # CSS for font size consistency
-    css = {
-        ".ag-row": {"font-size": "9pt"},
-        ".ag-header-cell-text": {"font-size": "9pt"},
-    }
-
-    AgGrid(
-        pd_display,
-        gridOptions=gridOptions,
-        allow_unsafe_jscode=True,
-        fit_columns_on_grid_load=False,
-        height=800,
+        height=460,
         width="100%",
         theme="alpine",
         custom_css=css,
