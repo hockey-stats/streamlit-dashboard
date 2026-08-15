@@ -20,20 +20,26 @@ def load_data(today: str) -> None:
     response_body = json.loads(response.text)
 
     download_url = None
+    # Prioritize 'public-stats-data' artifact
     for artifact in response_body["artifacts"]:
-        if artifact["name"] == "dashboard-fa-data":
+        if artifact["name"] == "public-stats-data":
             artifact_creation_date = artifact["created_at"].split("T")[0]
             if today == artifact_creation_date:
                 download_url = artifact["archive_download_url"]
                 break
     else:
-        # If today's data is not found, try to find the most recent one instead of crashing
-        # Or just use the existing data if available.
-        # For this dashboard, it seems it expects today's data.
-        if os.path.exists("data"):
-            print(f"Data for {today} not found, using existing local data.")
-            return
-        raise ValueError(f"Data for {today} not found and no local data available.")
+        # Fallback to old name just in case, or use existing local data
+        for artifact in response_body["artifacts"]:
+            if artifact["name"] == "dashboard-fa-data":
+                artifact_creation_date = artifact["created_at"].split("T")[0]
+                if today == artifact_creation_date:
+                    download_url = artifact["archive_download_url"]
+                    break
+        else:
+            if os.path.exists("data"):
+                print(f"Data for {today} not found, using existing local data.")
+                return
+            raise ValueError(f"Data for {today} not found and no local data available.")
 
     if download_url:
         print(f"Found artifact at {download_url}")
@@ -54,7 +60,7 @@ def trigger_workflow() -> bool:
     """
     Triggers the GitHub Action workflow.
     """
-    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_dashboard_data.yml/dispatches"
+    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_public_stats.yml/dispatches"
     headers = {
         "Authorization": f"Bearer {os.environ.get('GITHUB_PAT')}",
         "Accept": "application/vnd.github.v3+json",
@@ -71,9 +77,9 @@ def trigger_workflow() -> bool:
 
 def get_latest_workflow_run():
     """
-    Retrieves the latest workflow run for update_dashboard_data.yml
+    Retrieves the latest workflow run for update_public_stats.yml
     """
-    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_dashboard_data.yml/runs"
+    url = "https://api.github.com/repos/hockey-stats/streamlit-dashboard/actions/workflows/update_public_stats.yml/runs"
     headers = {
         "Authorization": f"Bearer {os.environ.get('GITHUB_PAT')}",
         "Accept": "application/vnd.github.v3+json",

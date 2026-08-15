@@ -1,0 +1,28 @@
+name: Update Public Baseball Stats
+on:
+  workflow_dispatch:
+  schedule: 
+    - cron: 0 7 * * *
+
+env:
+  DATA_ARTIFACT_NAME: 'public-stats-data'
+
+jobs:
+  get-data:
+    runs-on: ubuntu-latest
+    container:
+      image: sohraub/chart-plotter:main
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Gather Public Data
+        run: python3 get_public_data.py
+      
+      - name: Save Output as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.DATA_ARTIFACT_NAME }}
+          path: ./*.csv
+          retention-days: 2
+          overwrite: true

@@ -1,23 +1,10 @@
 import streamlit as st
 import polars as pl
 import pandas as pd
-import get_todays_probables
 import shared
 import os
 from unidecode import unidecode
 from st_aggrid import AgGrid, GridOptionsBuilder, JsCode
-from mlb_stats_util.get_team_stats import get_team_stats
-from mlb_stats_util import get_detailed_pitcher_stats
-
-
-@st.cache_data(ttl=43200)
-def get_cached_team_stats(year: int):
-    return get_team_stats(year)
-
-
-@st.cache_data(ttl=43200)
-def get_cached_pitcher_stats(year: int):
-    return get_detailed_pitcher_stats(year)
 
 
 st.markdown("# Today's Probable Pitchers (Public View)")
@@ -51,26 +38,35 @@ def format_short_name(name: str) -> str:
 today = shared.get_today_date()
 date_str = today.strftime("%Y-%m-%d")
 
-# Get team stats for enrichment
-year = today.year
+# 1. Load Data from CSVs (Fast)
+team_stats_path = "data/team_stats.csv"
+pitcher_stats_path = "data/all_pitcher_stats.csv"
+probables_path = "data/todays_probables.csv"
 
-# Initialize session state for team stats if not present
-if "team_stats_df" not in st.session_state:
-    st.session_state.team_stats_df = None
 
-team_stats_df = st.session_state.team_stats_df
+@st.cache_data
+def load_local_data():
+    t_df = (
+        pl.read_csv(team_stats_path)
+        if os.path.exists(team_stats_path)
+        else pl.DataFrame()
+    )
+    p_df = (
+        pl.read_csv(pitcher_stats_path)
+        if os.path.exists(pitcher_stats_path)
+        else pl.DataFrame()
+    )
+    prob_df = (
+        pl.read_csv(probables_path)
+        if os.path.exists(probables_path)
+        else pl.DataFrame()
+    )
+    return t_df, p_df, prob_df
 
-# Fetch probables from API (live)
-probables_df = get_todays_probables.get_probables(date_str)
+
+team_stats_df, pitcher_stats, probables_df = load_local_data()
 
 if not probables_df.is_empty():
-    # Load all pitcher stats for enrichment
-    try:
-        pitcher_stats = get_cached_pitcher_stats(year)
-    except Exception as e:
-        st.warning(f"Could not load season pitcher stats: {e}")
-        pitcher_stats = pl.DataFrame()
-
     if not pitcher_stats.is_empty():
         # Normalize names for joining
         pitcher_stats = pitcher_stats.with_columns(
@@ -134,7 +130,7 @@ if not probables_df.is_empty():
         "WSN": "WSH",
     }
 
-    if team_stats_df is not None and not team_stats_df.is_empty():
+    if not team_stats_df.is_empty():
         # Calculate ranks (higher is better = descending)
         team_stats_df = team_stats_df.with_columns(
             [
@@ -172,9 +168,7 @@ if not probables_df.is_empty():
                 pl.col("wOBA_vs_RHP").alias("Away_wOBA_R"),
                 pl.col("wOBA_R_Rank").alias("Away_wOBA_R_Rank"),
                 pl.col("Park_Factor").alias("Away_Park"),
-                pl.col("Park_Rank").alias("Away_Park_Rank"),
                 pl.col("Runs_L10").alias("Away_Runs_L10"),
-                pl.col("Runs_L10_Rank").alias("Away_Runs_L10_Rank"),
             ]
         )
         probables_df = probables_df.with_columns(
@@ -195,9 +189,7 @@ if not probables_df.is_empty():
                 pl.col("wOBA_vs_RHP").alias("Home_wOBA_R"),
                 pl.col("wOBA_R_Rank").alias("Home_wOBA_R_Rank"),
                 pl.col("Park_Factor").alias("Home_Park"),
-                pl.col("Park_Rank").alias("Home_Park_Rank"),
                 pl.col("Runs_L10").alias("Home_Runs_L10"),
-                pl.col("Runs_L10_Rank").alias("Home_Runs_L10_Rank"),
             ]
         )
         probables_df = probables_df.with_columns(
@@ -207,8 +199,7 @@ if not probables_df.is_empty():
             home_team_stats, left_on="Home_SC", right_on="Team_Abbr", how="left"
         ).drop("Home_SC")
 
-    # Add Matchup Metric columns
-    # We want to show how the team performing AGAINST the pitcher's hand
+    # Add Matchup Metric columns (Re-enabled)
     if "Away Hand" in probables_df.columns and "Home_wOBA_L" in probables_df.columns:
         probables_df = probables_df.with_columns(
             pl.when(pl.col("Away Hand") == "L")
@@ -243,7 +234,6 @@ if not probables_df.is_empty():
 
     # Final column selection
     display_cols = [
-        "Time",
         "Away",
         "Pitcher (A)",
         "Away ERA",
@@ -261,13 +251,10 @@ if not probables_df.is_empty():
         "Away_Runs_L10",
     ]
 
-    # Filter only columns that exist
     display_cols = [c for c in display_cols if c in probables_df.columns]
-
     display_df = probables_df.select(display_cols).fill_null("-")
     pd_display = display_df.to_pandas()
 
-    # Formatting helper
     def format_val(val, fmt="{:.2f}"):
         try:
             if val == "-" or val == "Data loading...":
@@ -276,31 +263,24 @@ if not probables_df.is_empty():
         except:
             return val
 
-    # Apply formatting
     for col in pd_display.columns:
         if any(x in col for x in ["ERA", "xERA", "wOBA", "Park"]):
             pd_display[col] = pd_display[col].apply(lambda x: format_val(x))
         if "K-BB%" in col:
             pd_display[col] = pd_display[col].apply(lambda x: format_val(x, "{:.1f}%"))
 
-    # Tooltips
     def get_matchup_tooltip(row, is_away=True):
         opp_prefix = "Home" if is_away else "Away"
         opp_abbr = row[opp_prefix]
         tooltips = []
-
         avg_r = row.get(f"{opp_prefix}_Avg_R", "-")
-        r_rank = row.get(f"{opp_prefix}_R_Rank", "-")
         runs_l10 = row.get(f"{opp_prefix}_Runs_L10", "-")
-
         if avg_r != "-" and avg_r != "Data loading...":
             tooltips.append(f"{opp_abbr} Season Avg Runs: {format_val(avg_r)}")
             tooltips.append(f"{opp_abbr} Runs (L10): {runs_l10}")
-
         park = row.get("Home_Park", "-")
         if park != "-":
             tooltips.append(f"Stadium Park Factor: {format_val(park)}")
-
         return "\n".join(tooltips)
 
     pd_display["Away_Tooltip"] = pd_display.apply(
@@ -310,26 +290,21 @@ if not probables_df.is_empty():
         lambda x: get_matchup_tooltip(x, False), axis=1
     )
 
-    # AgGrid configuration
     gb = GridOptionsBuilder.from_dataframe(pd_display)
-    gb.configure_default_column(resizable=True, filterable=True, sortable=True)
+    gb.configure_default_column(
+        resizable=True, filterable=True, sortable=True, minWidth=90
+    )
+    gb.configure_column("Away", minWidth=70, flex=1)
+    gb.configure_column("Home", minWidth=70, flex=1)
+    gb.configure_column(
+        "Pitcher (A)", tooltipField="Away_Tooltip", minWidth=150, flex=2
+    )
+    gb.configure_column(
+        "Pitcher (H)", tooltipField="Home_Tooltip", minWidth=150, flex=2
+    )
+    gb.configure_column("Opp wOBA (A)", headerName="Opp wOBA", minWidth=100)
+    gb.configure_column("Opp wOBA (H)", headerName="Opp wOBA", minWidth=100)
 
-    gb.configure_column("Pitcher (A)", tooltipField="Away_Tooltip", minWidth=140)
-    gb.configure_column("Pitcher (H)", tooltipField="Home_Tooltip", minWidth=140)
-    gb.configure_column("Away ERA", headerName="ERA (A)", minWidth=80)
-    gb.configure_column("Away xERA", headerName="xERA (A)", minWidth=80)
-    gb.configure_column("Home ERA", headerName="ERA (H)", minWidth=80)
-    gb.configure_column("Home xERA", headerName="xERA (H)", minWidth=80)
-    gb.configure_column("Opp wOBA (A)", headerName="Opp wOBA (vs Hand)", minWidth=110)
-    gb.configure_column("Opp wOBA (H)", headerName="Opp wOBA (vs Hand)", minWidth=110)
-
-    gb.configure_column("Away_Tooltip", hide=True)
-    gb.configure_column("Home_Tooltip", hide=True)
-    gb.configure_column("Home_Park", headerName="Park Factor", minWidth=80)
-    gb.configure_column("Home_Runs_L10", headerName="Runs L10 (H)", minWidth=80)
-    gb.configure_column("Away_Runs_L10", headerName="Runs L10 (A)", minWidth=80)
-
-    # Styling for good matchups (e.g. low wOBA vs good pitcher)
     cellStyle = JsCode("""
         function(params) {
             if (params.colDef.field.includes('Opp wOBA')) {
@@ -342,25 +317,23 @@ if not probables_df.is_empty():
     """)
     gb.configure_column("Opp wOBA (A)", cellStyle=cellStyle)
     gb.configure_column("Opp wOBA (H)", cellStyle=cellStyle)
+    gb.configure_column("Away_Tooltip", hide=True)
+    gb.configure_column("Home_Tooltip", hide=True)
 
     gridOptions = gb.build()
-    gridOptions["domLayout"] = "autoHeight"
+    gridOptions["rowHeight"] = 45
+    gridOptions["headerHeight"] = 50
+    gridOptions["pagination"] = True
+    gridOptions["paginationPageSize"] = 25
 
     AgGrid(
         pd_display,
         gridOptions=gridOptions,
         allow_unsafe_jscode=True,
-        fit_columns_on_grid_load=True,
+        fit_columns_on_grid_load=False,
+        height=800,
+        width="100%",
+        theme="alpine",
     )
-
-    # Rerun if team stats need loading
-    if st.session_state.team_stats_df is None:
-        try:
-            stats = get_cached_team_stats(year)
-            st.session_state.team_stats_df = stats
-            st.rerun()
-        except:
-            pass
-
 else:
     st.write(f"No games found for {date_str}.")

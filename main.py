@@ -9,14 +9,14 @@ st.set_page_config(page_title="Fantasy Baseball Stats", page_icon="⚾", layout=
 
 # Define pages
 pages = [
-    st.Page("views/free_agent_summary.py", title="Free Agent Summary", icon="📋"),
-    st.Page("views/league_weekly_stats.py", title="League Weekly Stats", icon="📈"),
-    st.Page("views/probable_pitchers.py", title="Probable Pitchers", icon="⚾"),
     st.Page(
         "views/probable_pitchers_public.py",
         title="Probable Pitchers (Public)",
         icon="🌍",
     ),
+    st.Page("views/probable_pitchers.py", title="Probable Pitchers", icon="⚾"),
+    st.Page("views/free_agent_summary.py", title="Free Agent Summary", icon="📋"),
+    st.Page("views/league_weekly_stats.py", title="League Weekly Stats", icon="📈"),
 ]
 
 # Initialize navigation
