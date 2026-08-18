@@ -22,13 +22,15 @@ def load_data(today: str) -> None:
             return
         raise ValueError("GITHUB_PAT not set and no local data available.")
 
-    headers = {"Authorization": f"Bearer {pat}"}
+    headers = {
+        "Authorization": f"Bearer {pat}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
     output_filename = "data.zip"
 
     try:
-        response = requests.request(
-            "GET", url, headers=headers, data=payload, timeout=10
-        )
+        response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         response_body = response.json()
     except Exception as e:
@@ -44,7 +46,9 @@ def load_data(today: str) -> None:
     artifacts = response_body.get("artifacts", [])
 
     for artifact in artifacts:
-        if artifact["name"] == "public-stats-data":
+        if artifact["name"] == "public-stats-data" and not artifact.get(
+            "expired", False
+        ):
             download_url = artifact["archive_download_url"]
             print(
                 f"Found latest public-stats-data artifact created at {artifact['created_at']}"
@@ -53,8 +57,10 @@ def load_data(today: str) -> None:
 
     # 2. Fallback to old name if not found
     if not download_url:
-        for artifact in response_body.get("artifacts", []):
-            if artifact["name"] == "dashboard-fa-data":
+        for artifact in artifacts:
+            if artifact["name"] == "dashboard-fa-data" and not artifact.get(
+                "expired", False
+            ):
                 download_url = artifact["archive_download_url"]
                 print(
                     f"Found fallback dashboard-fa-data artifact created at {artifact['created_at']}"
@@ -69,11 +75,21 @@ def load_data(today: str) -> None:
 
     if download_url:
         print(f"Downloading artifact from {download_url}")
-        dl_response = requests.request(
-            "GET", download_url, headers=headers, data=payload, timeout=20
-        )
+        dl_response = requests.get(download_url, headers=headers, timeout=20)
+
+        if dl_response.status_code != 200:
+            print(
+                f"Download failed with status {dl_response.status_code}: {dl_response.text}"
+            )
+            dl_response.raise_for_status()
+
         with open(output_filename, "wb") as fo:
             fo.write(dl_response.content)
+
+        if not zipfile.is_zipfile(output_filename):
+            with open(output_filename, "rb") as f:
+                header = f.read(100)
+            raise ValueError(f"Downloaded file is not a zip file. Header: {header!r}")
 
         with zipfile.ZipFile(output_filename, "r") as zip_ref:
             zip_ref.extractall("data")
